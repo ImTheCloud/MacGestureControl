@@ -12,37 +12,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var eventTap: CFMachPort?
     var runLoopSource: CFRunLoopSource?
 
-    let settings = GestureSettings.shared
+    let settings = AppSettings.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDelegate.shared = self
 
-        // 1. Initialiser le Popover SwiftUI
+        // 1. Setup SwiftUI Settings Popover
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 360, height: 380)
+        popover.contentSize = NSSize(width: 390, height: 480)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: GestureSettingsView())
+        popover.contentViewController = NSHostingController(rootView: SettingsView())
         self.popover = popover
 
-        // 2. Configurer l'icône de la barre des menus
+        // 2. Setup Menu Bar Item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = statusItem.button {
-            let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-            if let img = NSImage(systemSymbolName: "hand.draw.fill", accessibilityDescription: "MacGesture Control")?.withSymbolConfiguration(config) {
-                button.image = img
-            } else {
-                button.image = NSImage(systemSymbolName: "hand.tap.fill", accessibilityDescription: "MacGesture Control")
-            }
-            button.target = self
-            button.action = #selector(togglePopover(_:))
-        }
+        updateStatusItemIcon(settings.menuBarIcon)
 
-        // 3. Demander les permissions & installer l'event tap
+        // 3. Request Accessibility & Install Fallback Event Tap
         requestAccessibilityPermission()
         installEventTap()
 
-        // 4. Démarrer la détection multi-touch trackpad (3 et 4 doigts)
-        MultitouchManager.shared.start()
+        // 4. Start Native Multitouch Engine (2, 3, 4 & 5 fingers, pinches, corner taps)
+        MultitouchEngine.shared.start()
+    }
+
+    func updateStatusItemIcon(_ iconName: String) {
+        guard let button = statusItem.button else { return }
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        if let img = NSImage(systemSymbolName: iconName, accessibilityDescription: "MacGesture Control")?.withSymbolConfiguration(config) {
+            button.image = img
+        } else {
+            button.image = NSImage(systemSymbolName: "hand.draw.fill", accessibilityDescription: "MacGesture Control")
+        }
+        button.target = self
+        button.action = #selector(togglePopover(_:))
     }
 
     // MARK: - Popover Handling
@@ -62,7 +65,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
-    // MARK: - Event Tap
+    // MARK: - Event Tap (Fallback Scroll Wheel Interceptor)
     func installEventTap() {
         let mask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
         let callback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
@@ -77,14 +80,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let deltaY = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
                 let deltaX = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
 
-                // Détection Défilement Vertical (2 doigts) si activé
+                // Only intercept 2-finger scroll if explicitly mapped to an action
                 if abs(deltaY) > 0.4 && delegate.settings.twoFingerVerticalAction != .none {
-                    delegate.executeAction(delegate.settings.twoFingerVerticalAction, up: deltaY > 0)
+                    SystemController.shared.execute(delegate.settings.twoFingerVerticalAction, up: deltaY > 0)
                 }
 
-                // Détection Défilement Horizontal (2 doigts) si activé
                 if abs(deltaX) > 0.4 && delegate.settings.twoFingerHorizontalAction != .none {
-                    delegate.executeAction(delegate.settings.twoFingerHorizontalAction, up: deltaX > 0)
+                    SystemController.shared.execute(delegate.settings.twoFingerHorizontalAction, up: deltaX > 0)
                 }
             }
 
@@ -104,122 +106,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             CGEvent.tapEnable(tap: tap, enable: true)
         } else {
             NSLog("Failed to create event tap – ensure Accessibility permission is granted.")
-        }
-    }
-
-    // MARK: - Action Dispatcher
-    func executeAction(_ action: GestureAction, up: Bool) {
-        switch action {
-        case .volume:
-            adjustSystemVolume(up: up)
-        case .brightness:
-            adjustBrightness(up: up)
-        case .mediaPlayPause:
-            controlMedia(action: .playPause)
-        case .mediaNext:
-            controlMedia(action: up ? .next : .previous)
-        case .mediaPrevious:
-            controlMedia(action: .previous)
-        case .toggleMute:
-            toggleMute()
-        case .mouseSpeed:
-            setMouseTrackingSpeed(increase: up)
-        case .launchApp:
-            launchApplication(bundleID: settings.targetBundleId)
-        case .none:
-            break
-        }
-    }
-
-    // MARK: - Volume Control
-    func adjustSystemVolume(up: Bool) {
-        var deviceID = AudioObjectID(0)
-        var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-                                                mScope: kAudioObjectPropertyScopeGlobal,
-                                                mElement: kAudioObjectPropertyElementMain)
-        var size = UInt32(MemoryLayout<AudioObjectID>.size)
-        let status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID)
-        guard status == noErr else { return }
-
-        var volume: Float32 = 0
-        var volSize = UInt32(MemoryLayout<Float32>.size)
-        var volAddress = AudioObjectPropertyAddress(mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
-                                                    mScope: kAudioDevicePropertyScopeOutput,
-                                                    mElement: kAudioObjectPropertyElementMain)
-        AudioObjectGetPropertyData(deviceID, &volAddress, 0, nil, &volSize, &volume)
-
-        let step = Float32(settings.sensitivity)
-        var newVolume = max(0, min(1, volume + (up ? step : -step)))
-        AudioObjectSetPropertyData(deviceID, &volAddress, 0, nil, volSize, &newVolume)
-    }
-
-    // MARK: - Brightness Control
-    func adjustBrightness(up: Bool) {
-        let script = up
-            ? "tell application \"System Events\" to key code 144"
-            : "tell application \"System Events\" to key code 145"
-        runAppleScript(script)
-    }
-
-    // MARK: - Mute Toggle
-    func toggleMute() {
-        let script = "set volume output muted not (output muted of (get volume settings))"
-        runAppleScript(script)
-    }
-
-    // MARK: - Media Control
-    func controlMedia(action: MediaAction) {
-        let script: String
-        switch action {
-        case .playPause:
-            script = """
-            if application "Music" is running then
-                tell application "Music" to playpause
-            else if application "Spotify" is running then
-                tell application "Spotify" to playpause
-            end if
-            """
-        case .next:
-            script = """
-            if application "Music" is running then
-                tell application "Music" to next track
-            else if application "Spotify" is running then
-                tell application "Spotify" to next track
-            end if
-            """
-        case .previous:
-            script = """
-            if application "Music" is running then
-                tell application "Music" to previous track
-            else if application "Spotify" is running then
-                tell application "Spotify" to previous track
-            end if
-            """
-        }
-        runAppleScript(script)
-    }
-
-    // MARK: - Mouse Speed Placeholder
-    func setMouseTrackingSpeed(increase: Bool) {
-        // TODO: implement mouse tracking speed adjustment
-    }
-
-    // MARK: - Launch Application
-    func launchApplication(bundleID: String) {
-        guard !bundleID.isEmpty else { return }
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-            let config = NSWorkspace.OpenConfiguration()
-            NSWorkspace.shared.openApplication(at: url, configuration: config, completionHandler: nil)
-        }
-    }
-
-    // MARK: - Helper AppleScript Runner
-    private func runAppleScript(_ script: String) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            if let appleScript = NSAppleScript(source: script) {
-                var error: NSDictionary?
-                appleScript.executeAndReturnError(&error)
-            }
         }
     }
 }
