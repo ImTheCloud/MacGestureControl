@@ -46,30 +46,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Event Tap
     func installEventTap() {
-        let mask = CGEventMask((1 << CGEventType.scrollWheel.rawValue) |
-                               (1 << CGEventType.swipe.rawValue) |
-                               (1 << CGEventType.tap.rawValue))
+        // Only listen for scroll wheel events for volume control.
+        let mask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
         let callback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
             guard let delegatePtr = refcon else { return Unmanaged.passUnretained(event) }
             let delegate = Unmanaged<AppDelegate>.fromOpaque(delegatePtr).takeUnretainedValue()
-            switch type {
-            case .scrollWheel:
+            if type == .scrollWheel {
                 let deltaY = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
                 if abs(deltaY) > 0.5 {
                     delegate.adjustSystemVolume(up: deltaY > 0)
                 }
-                // TODO: Add detection for brightness via vertical scroll with modifier keys, etc.
-            case .swipe:
-                // Placeholder: interpret swipe direction to trigger actions
-                // For example, a left swipe could toggle mute, a right swipe could play/pause
-                // Real implementation would inspect event data fields.
-                delegate.toggleMute() // TODO: replace with proper direction logic
-            case .tap:
-                // Placeholder for triple‑finger tap to control media
-                delegate.controlMedia(action: .playPause)
-            default:
-                break
+                // TODO: Add detection for brightness via modifier keys or other event types.
             }
+            // Future gesture handling (swipe, tap, etc.) can be added here.
             return Unmanaged.passUnretained(event)
         }
         let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
@@ -82,7 +71,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             eventTap = tap
             runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-            CGEvent.tapEnable(tap, enable: true)
+            CGEvent.tapEnable(tap: tap, enable: true)
         } else {
             NSLog("Failed to create event tap – ensure Accessibility permission is granted.")
         }
@@ -99,12 +88,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard status == noErr else { return }
         var volume: Float32 = 0
         var volSize = UInt32(MemoryLayout<Float32>.size)
-        var volAddress = AudioObjectPropertyAddress(mSelector: kAudioHardwareServiceDeviceProperty_VirtualMasterVolume,
+        var volAddress = AudioObjectPropertyAddress(mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
                                                     mScope: kAudioDevicePropertyScopeOutput,
                                                     mElement: kAudioObjectPropertyElementMain)
         AudioObjectGetPropertyData(deviceID, &volAddress, 0, nil, &volSize, &volume)
         let step: Float32 = 0.05 // 5% per swipe
-        let newVolume = max(0, min(1, volume + (up ? step : -step)))
+        var newVolume = max(0, min(1, volume + (up ? step : -step)))
         AudioObjectSetPropertyData(deviceID, &volAddress, 0, nil, volSize, &newVolume)
     }
 
