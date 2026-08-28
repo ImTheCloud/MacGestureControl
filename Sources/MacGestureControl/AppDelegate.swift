@@ -31,10 +31,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - UI
 
     private func setUpPopover() {
+        let hosting = NSHostingController(rootView: SettingsView())
+        // Without this the controller never reports a preferred size, the
+        // popover keeps its default 0x0 content size, and AppKit anchors the
+        // resulting degenerate frame off the top of the screen.
+        hosting.sizingOptions = [.preferredContentSize]
+
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentViewController = NSHostingController(rootView: SettingsView())
+        popover.contentViewController = hosting
+        popover.contentSize = hosting.view.fittingSize
         self.popover = popover
     }
 
@@ -58,9 +65,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         if popover.isShown {
             popover.performClose(sender)
-        } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
+            return
+        }
+
+        updatePopoverLayout(for: button)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+
+    /// Lets the content grow into whatever the screen under the menu bar offers,
+    /// so a tab only scrolls when it genuinely cannot fit.
+    private func updatePopoverLayout(for button: NSStatusBarButton) {
+        let screen = button.window?.screen ?? NSScreen.main
+        guard let visibleHeight = screen?.visibleFrame.height else { return }
+        PopoverLayout.shared.update(forScreenHeight: visibleHeight)
+
+        // The hosting controller republishes its preferred size asynchronously;
+        // seed it now so the first presentation is already the right size.
+        if let hosting = popover.contentViewController {
+            hosting.view.layoutSubtreeIfNeeded()
+            popover.contentSize = hosting.view.fittingSize
         }
     }
 

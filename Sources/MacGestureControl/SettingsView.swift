@@ -3,13 +3,28 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+/// One set of row measurements for every card, so glyphs, labels and dividers
+/// line up on the same axis whatever the row contains.
+private enum Row {
+    static let horizontalPadding: CGFloat = 11
+    static let verticalPadding: CGFloat = 7
+    static let glyphSize: CGFloat = 28
+    static let glyphSpacing: CGFloat = 10
+    static let controlWidth: CGFloat = 130
+    /// Where every title starts, and where dividers are inset to.
+    static var textInset: CGFloat { horizontalPadding + glyphSize + glyphSpacing }
+}
+
 struct SettingsView: View {
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var engine = MultitouchEngine.shared
     @ObservedObject private var launchAtLogin = LaunchAtLoginManager.shared
     @ObservedObject private var permissions = PermissionMonitor.shared
+    @ObservedObject private var layout = PopoverLayout.shared
 
     @State private var selectedTab: Tab = .dashboard
+    /// Height the current tab would like, measured from its content.
+    @State private var naturalContentHeight: CGFloat = SettingsMetrics.minContentHeight
 
     private enum Tab: Hashable {
         case dashboard
@@ -40,26 +55,48 @@ struct SettingsView: View {
 
             Divider().opacity(0.4)
 
-            ScrollView {
-                VStack(spacing: 12) {
+            ScrollView(.vertical) {
+                VStack(spacing: 14) {
                     switch selectedTab {
                     case .dashboard: dashboard
                     case .group(let group): groupSection(group)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: ContentHeightKey.self, value: proxy.size.height)
+                    }
+                )
             }
-            .frame(height: 330)
+            .frame(height: contentHeight)
+            .scrollDisabled(!needsScrolling)
+            .onPreferenceChange(ContentHeightKey.self) { measured in
+                let rounded = measured.rounded()
+                // Rounded and thresholded: the frame depends on this value, so a
+                // jittering measurement would otherwise re-trigger layout forever.
+                if abs(rounded - naturalContentHeight) > 0.5 { naturalContentHeight = rounded }
+            }
 
             Divider().opacity(0.4)
 
             footer
                 .padding(.horizontal, 16)
-                .padding(.vertical, 9)
+                .padding(.vertical, 10)
         }
-        .frame(width: 410)
+        .frame(width: SettingsMetrics.width)
         .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
+    }
+
+    /// The tab's own height, never shorter than a sliver and never taller than
+    /// the screen allows.
+    private var contentHeight: CGFloat {
+        min(max(naturalContentHeight, SettingsMetrics.minContentHeight), layout.maxContentHeight)
+    }
+
+    private var needsScrolling: Bool {
+        naturalContentHeight > layout.maxContentHeight
     }
 
     // MARK: - Header
@@ -77,13 +114,13 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("MacGesture Control")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
                 HStack(spacing: 4) {
                     Circle()
                         .fill(statusColor)
                         .frame(width: 5, height: 5)
                     Text(statusText)
-                        .font(.system(size: 10))
+                        .font(.system(size: 10.5))
                         .foregroundColor(statusColor)
                 }
             }
@@ -126,9 +163,9 @@ struct SettingsView: View {
             HapticManager.shared.trigger()
         } label: {
             Text(tab.title)
-                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                .font(.system(size: 11.5, weight: isSelected ? .semibold : .regular))
                 .lineLimit(1)
-                .padding(.vertical, 5)
+                .padding(.vertical, 5.5)
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -148,33 +185,50 @@ struct SettingsView: View {
             }
 
             activeGestures
-            TouchVisualizerView()
+            liveTrackpad
             preferences
         }
     }
 
-    private var permissionBanner: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 13))
-                .foregroundColor(.orange)
+    private var liveTrackpad: some View {
+        let count = engine.activeTouches.count
 
-            VStack(alignment: .leading, spacing: 1) {
+        return VStack(spacing: 0) {
+            sectionHeader(icon: "hand.point.up.left.fill", text: "LIVE TRACKPAD") {
+                Text(count == 0 ? "Touch the trackpad" : "\(count) finger\(count == 1 ? "" : "s")")
+                    .font(.system(size: 9.5, weight: count == 0 ? .regular : .bold, design: .rounded))
+                    .foregroundColor(count == 0 ? .secondary : .accentColor)
+            }
+            TouchVisualizerView()
+                .padding(10)
+                .background(cardBackground)
+        }
+    }
+
+    private var permissionBanner: some View {
+        HStack(spacing: Row.glyphSpacing) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14))
+                .foregroundColor(.orange)
+                .frame(width: Row.glyphSize)
+
+            VStack(alignment: .leading, spacing: 1.5) {
                 Text("Accessibility access required")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                 Text("Gestures cannot control your Mac until it is granted.")
-                    .font(.system(size: 9.5))
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 8)
 
             Button("Open") { permissions.openSettings() }
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 10.5, weight: .semibold))
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
         }
-        .padding(10)
+        .padding(.horizontal, Row.horizontalPadding)
+        .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.orange.opacity(0.12))
@@ -193,17 +247,18 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 if assigned.isEmpty {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Row.glyphSpacing) {
                         Image(systemName: "moon.zzz.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .frame(width: Row.glyphSize)
+                        Text("No gestures assigned yet — pick one from a tab above.")
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
-                        Text("No gestures assigned yet — pick one from a tab above.")
-                            .font(.system(size: 10.5))
-                            .foregroundColor(.secondary)
-                        Spacer()
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, Row.horizontalPadding)
+                    .padding(.vertical, 14)
                 } else {
                     ForEach(Array(assigned.enumerated()), id: \.element) { index, slot in
                         if index > 0 { rowDivider }
@@ -249,28 +304,17 @@ struct SettingsView: View {
     }
 
     private var sensitivityRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "dial.medium.fill")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .frame(width: 18)
-
-            Text("Sensitivity")
-                .font(.system(size: 11))
-
-            Spacer(minLength: 8)
-
-            Slider(value: $settings.sensitivity, in: 0...1)
-                .controlSize(.mini)
-                .frame(width: 120)
-
-            Text(sensitivityLabel)
-                .font(.system(size: 9, weight: .medium, design: .rounded))
-                .foregroundColor(.secondary)
-                .frame(width: 42, alignment: .trailing)
+        settingRow(icon: "dial.medium.fill", title: "Sensitivity") {
+            HStack(spacing: 8) {
+                Slider(value: $settings.sensitivity, in: 0...1)
+                    .controlSize(.mini)
+                Text(sensitivityLabel)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .frame(width: 46, alignment: .trailing)
+            }
+            .frame(width: Row.controlWidth)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
     }
 
     private var sensitivityLabel: String {
@@ -282,67 +326,46 @@ struct SettingsView: View {
     }
 
     private var menuBarIconRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "menubar.arrow.up.rectangle")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .frame(width: 18)
-
-            Text("Menu Bar Icon")
-                .font(.system(size: 11))
-
-            Spacer()
-
+        settingRow(icon: "menubar.arrow.up.rectangle", title: "Menu Bar Icon") {
             HStack(spacing: 4) {
                 ForEach(AppSettings.menuBarIconChoices, id: \.self) { icon in
+                    let isCurrent = settings.menuBarIcon == icon
                     Button {
                         settings.menuBarIcon = icon
                         HapticManager.shared.trigger()
                     } label: {
                         Image(systemName: icon)
-                            .font(.system(size: 10))
-                            .frame(width: 20, height: 20)
+                            .font(.system(size: 10.5))
+                            .frame(width: 21, height: 21)
                             .background(
                                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .fill(settings.menuBarIcon == icon
-                                          ? Color.accentColor.opacity(0.20)
-                                          : Color.primary.opacity(0.05))
+                                    .fill(isCurrent ? Color.accentColor.opacity(0.20) : Color.primary.opacity(0.05))
                             )
-                            .foregroundColor(settings.menuBarIcon == icon ? .accentColor : .secondary)
+                            .foregroundColor(isCurrent ? .accentColor : .secondary)
                     }
                     .buttonStyle(.plain)
+                    .help(icon)
                 }
             }
+            .frame(width: Row.controlWidth, alignment: .trailing)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
     }
 
     private var launchTargetRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "arrow.up.forward.app.fill")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .frame(width: 18)
-
-            Text("Launch Target")
-                .font(.system(size: 11))
-
-            Spacer(minLength: 6)
-
+        settingRow(icon: "arrow.up.forward.app.fill", title: "Launch Target") {
             Button {
                 chooseLaunchTarget()
             } label: {
                 HStack(spacing: 4) {
                     Text(launchTargetName)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 10.5, weight: .semibold))
                         .lineLimit(1)
                     Image(systemName: "folder")
-                        .font(.system(size: 8))
+                        .font(.system(size: 8.5))
                 }
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3.5)
-                .frame(width: 118, alignment: .trailing)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(width: Row.controlWidth, alignment: .trailing)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(Color.accentColor.opacity(0.12))
@@ -352,11 +375,10 @@ struct SettingsView: View {
                         )
                 )
                 .foregroundColor(.accentColor)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
     }
 
     private var launchTargetName: String {
@@ -406,31 +428,31 @@ struct SettingsView: View {
         let isAssigned = action != .none
         let isFlashing = engine.lastTriggeredSlot == slot
 
-        return HStack(spacing: 10) {
+        return HStack(spacing: Row.glyphSpacing) {
             ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(isAssigned ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
-                    .frame(width: 26, height: 26)
                 Image(systemName: slot.icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(isAssigned ? .accentColor : .secondary)
             }
+            .frame(width: Row.glyphSize, height: Row.glyphSize)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 1.5) {
                 Text(showsSlotName ? slot.fullTitle : slot.title)
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                 Text(description(for: slot, action: action))
-                    .font(.system(size: 9))
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 6)
+            Spacer(minLength: 8)
 
             actionPicker(for: slot, action: action)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Row.horizontalPadding)
+        .padding(.vertical, Row.verticalPadding)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isFlashing ? Color.accentColor.opacity(0.22) : Color.clear)
@@ -443,8 +465,11 @@ struct SettingsView: View {
     private func description(for slot: GestureSlot, action: GestureAction) -> String {
         guard action != .none else { return slot.subtitle }
 
+        // Only swipes get a bespoke caption: the direction they run in cannot be
+        // read off the picker. For every other slot the picker already names the
+        // action, so the caption describes the gesture instead of repeating it.
         let isSwipe = slot.kind == .swipeVertical || slot.kind == .swipeHorizontal
-        guard isSwipe else { return action.title }
+        guard isSwipe else { return slot.subtitle }
 
         if action.isContinuous {
             return slot.kind == .swipeVertical ? "Up raises · down lowers" : "Right raises · left lowers"
@@ -485,16 +510,16 @@ struct SettingsView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: action.icon)
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 9.5, weight: .semibold))
                 Text(action.shortTitle)
-                    .font(.system(size: 10, weight: isAssigned ? .semibold : .regular))
+                    .font(.system(size: 10.5, weight: isAssigned ? .semibold : .regular))
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 7))
+                    .font(.system(size: 7.5))
             }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3.5)
-            .frame(width: 118, alignment: .trailing)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(width: Row.controlWidth, alignment: .trailing)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
@@ -505,51 +530,78 @@ struct SettingsView: View {
             )
             .foregroundColor(isAssigned ? .accentColor : .secondary)
         }
-        .menuStyle(.borderlessButton)
+        // `.borderlessButton` discards the label's background and tint;
+        // `.button` with a plain button style renders it as designed.
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
     }
 
     private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .frame(width: 18)
-
-            Text(title)
-                .font(.system(size: 11))
-
-            Spacer()
-
+        settingRow(icon: icon, title: title) {
             Toggle("", isOn: isOn)
                 .toggleStyle(.switch)
                 .labelsHidden()
                 .scaleEffect(0.75)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+    }
+
+    /// Preference rows share the gesture rows' glyph slot and padding so every
+    /// label and divider in the popover sits on the same axis.
+    private func settingRow<Trailing: View>(
+        icon: String,
+        title: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: Row.glyphSpacing) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(width: Row.glyphSize, height: Row.glyphSize)
+
+            Text(title)
+                .font(.system(size: 12))
+
+            Spacer(minLength: 8)
+
+            trailing()
+        }
+        .padding(.horizontal, Row.horizontalPadding)
+        .padding(.vertical, Row.verticalPadding)
     }
 
     // MARK: - Shared chrome
 
     private func sectionHeader(icon: String, text: String) -> some View {
+        sectionHeader(icon: icon, text: text) { EmptyView() }
+    }
+
+    private func sectionHeader<Trailing: View>(
+        icon: String,
+        text: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 9.5, weight: .bold))
             Text(text)
-                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .tracking(0.4)
+                .foregroundColor(.secondary)
+            Spacer(minLength: 8)
+            trailing()
         }
         .foregroundColor(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
-        .padding(.bottom, 5)
+        .padding(.bottom, 6)
     }
 
     private var rowDivider: some View {
         Divider()
             .opacity(0.3)
-            .padding(.leading, 42)
+            .padding(.leading, Row.textInset)
     }
 
     private var cardBackground: some View {
@@ -568,10 +620,10 @@ struct SettingsView: View {
             Link(destination: URL(string: "https://github.com/ImTheCloud/MacGestureControl")!) {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 9))
+                        .font(.system(size: 9.5))
                         .foregroundColor(.yellow)
                     Text("GitHub")
-                        .font(.system(size: 10))
+                        .font(.system(size: 10.5))
                         .foregroundColor(.secondary)
                 }
             }
@@ -585,9 +637,9 @@ struct SettingsView: View {
             } label: {
                 HStack(spacing: 3) {
                     Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 8))
+                        .font(.system(size: 8.5))
                     Text("Reset Defaults")
-                        .font(.system(size: 10))
+                        .font(.system(size: 10.5))
                 }
                 .foregroundColor(.secondary)
             }
@@ -602,9 +654,9 @@ struct SettingsView: View {
             } label: {
                 HStack(spacing: 3) {
                     Image(systemName: "power")
-                        .font(.system(size: 8))
+                        .font(.system(size: 8.5))
                     Text("Quit")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 10.5, weight: .medium))
                 }
                 .foregroundColor(.red)
             }
