@@ -56,6 +56,30 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    var shortTitle: String {
+        switch self {
+        case .volume: return "Volume"
+        case .brightness: return "Brightness"
+        case .mediaPlayPause: return "Play / Pause"
+        case .mediaNext: return "Next Track"
+        case .mediaPrevious: return "Prev Track"
+        case .toggleMute: return "Mute"
+        case .middleClick: return "Middle Click"
+        case .snapLeft: return "Snap Left"
+        case .snapRight: return "Snap Right"
+        case .maximizeWindow: return "Maximize"
+        case .centerWindow: return "Center"
+        case .minimizeWindow: return "Minimize"
+        case .missionControl: return "Mission Control"
+        case .showDesktop: return "Show Desktop"
+        case .lockScreen: return "Lock Screen"
+        case .sleepDisplay: return "Sleep Display"
+        case .screenshot: return "Screenshot"
+        case .launchApp: return "Launch App"
+        case .none: return "Disabled"
+        }
+    }
+
     var icon: String {
         switch self {
         case .volume: return "speaker.wave.3.fill"

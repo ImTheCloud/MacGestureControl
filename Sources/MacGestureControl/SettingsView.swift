@@ -11,12 +11,13 @@ struct SettingsView: View {
         VStack(spacing: 12) {
             // MARK: - Header
             headerView
+                .padding(.top, 4)
 
             Divider().opacity(0.5)
 
-            // MARK: - Core Active Gestures (Instant & Powerful)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("ACTIVE GESTURES")
+            // MARK: - Core Active Gestures
+            VStack(alignment: .leading, spacing: 7) {
+                Text("GESTURES")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 4)
@@ -24,31 +25,31 @@ struct SettingsView: View {
                 gestureRow(
                     id: "fourFingerVertical",
                     icon: "speaker.wave.3.fill",
-                    title: "4-Finger Swipe Up / Down",
-                    subtitle: "Volume control",
+                    title: "4-Finger Swipe",
+                    subtitle: "Swipe up / down on trackpad",
                     binding: $settings.fourFingerVerticalAction
                 )
 
                 gestureRow(
                     id: "fourFingerTap",
                     icon: "playpause.fill",
-                    title: "4-Finger Single Tap",
-                    subtitle: "Play / Pause Spotify & Music",
+                    title: "4-Finger Tap",
+                    subtitle: "Brief tap with 4 fingers",
                     binding: $settings.fourFingerTapAction
                 )
 
                 gestureRow(
                     id: "threeFingerTap",
                     icon: "camera.fill",
-                    title: "3-Finger Single Tap",
-                    subtitle: "Instant Screenshot",
+                    title: "3-Finger Tap",
+                    subtitle: "Brief tap with 3 fingers",
                     binding: $settings.threeFingerTapAction
                 )
             }
 
             // MARK: - Advanced / More Gestures (Expandable)
             if showAdvanced {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 7) {
                     Text("MORE GESTURES")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(.secondary)
@@ -58,24 +59,24 @@ struct SettingsView: View {
                     gestureRow(
                         id: "threeFingerHorizontal",
                         icon: "arrow.left.and.right",
-                        title: "3-Finger Swipe Left / Right",
-                        subtitle: "Track or Window change",
+                        title: "3-Finger Swipe",
+                        subtitle: "Swipe left / right on trackpad",
                         binding: $settings.threeFingerHorizontalAction
                     )
 
                     gestureRow(
                         id: "twoFingerTap",
                         icon: "hand.tap.fill",
-                        title: "2-Finger Single Tap",
-                        subtitle: "Quick secondary action",
+                        title: "2-Finger Tap",
+                        subtitle: "Tap with 2 fingers",
                         binding: $settings.twoFingerTapAction
                     )
 
                     gestureRow(
                         id: "cornerTopLeft",
                         icon: "square.topthird.inset.filled",
-                        title: "Top-Left Corner Tap",
-                        subtitle: "Corner shortcut",
+                        title: "Top-Left Corner",
+                        subtitle: "Tap trackpad top-left corner",
                         binding: $settings.cornerTopLeftAction
                     )
                 }
@@ -111,13 +112,13 @@ struct SettingsView: View {
 
                 toggleRow(
                     icon: "iphone.radiowaves.left.and.right",
-                    title: "Haptic Feedback (Trackpad Clicks)",
+                    title: "Haptic Feedback (Clicks)",
                     isOn: $settings.hapticsEnabled
                 )
 
                 toggleRow(
                     icon: "tv.fill",
-                    title: "HUD Popup on Screen",
+                    title: "HUD Volume Popup",
                     isOn: $settings.showHUD
                 )
             }
@@ -135,9 +136,10 @@ struct SettingsView: View {
 
             // MARK: - Minimal Footer
             footerView
+                .padding(.bottom, 2)
         }
-        .padding(14)
-        .frame(width: 360)
+        .padding(16)
+        .frame(width: 380)
         .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
     }
 
@@ -160,15 +162,15 @@ struct SettingsView: View {
                     .font(.system(size: 15, weight: .bold))
             }
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text("MacGesture")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MacGesture Control")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
 
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     Circle()
                         .fill(settings.isEnabled ? Color.green : Color.secondary.opacity(0.5))
                         .frame(width: 6, height: 6)
-                    Text(settings.isEnabled ? "Active" : "Paused")
+                    Text(settings.isEnabled ? "Active & Listening" : "Paused")
                         .font(.system(size: 11))
                         .foregroundColor(settings.isEnabled ? .green : .secondary)
                 }
@@ -187,25 +189,27 @@ struct SettingsView: View {
         let isFlashing = engine.lastTriggeredGestureId == id
         let isAssigned = binding.wrappedValue != .none
 
-        return HStack(spacing: 8) {
+        return HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isAssigned ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
-                    .frame(width: 26, height: 26)
+                    .frame(width: 28, height: 28)
                 Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(isAssigned ? .accentColor : .secondary)
             }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.primary)
                 Text(subtitle)
-                    .font(.system(size: 9))
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 8)
 
             Menu {
                 ForEach(GestureAction.allCases) { action in
@@ -222,19 +226,18 @@ struct SettingsView: View {
                     }
                 }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     Image(systemName: binding.wrappedValue.icon)
-                        .font(.system(size: 9, weight: .semibold))
-                    Text(binding.wrappedValue == .none ? "Disabled" : binding.wrappedValue.title)
-                        .font(.system(size: 10, weight: isAssigned ? .semibold : .regular))
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(binding.wrappedValue.shortTitle)
+                        .font(.system(size: 11, weight: isAssigned ? .semibold : .regular))
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 7))
+                        .font(.system(size: 8))
                         .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3.5)
-                .frame(maxWidth: 155, alignment: .trailing)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
@@ -247,13 +250,13 @@ struct SettingsView: View {
             }
             .menuStyle(.borderlessButton)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isFlashing ? Color.accentColor.opacity(0.25) : (isAssigned ? Color.primary.opacity(0.03) : Color.clear))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(isFlashing ? Color.accentColor : Color.primary.opacity(0.05), lineWidth: isFlashing ? 1.5 : 0.8)
                 )
         )
