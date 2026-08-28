@@ -36,7 +36,6 @@ final class AppSettings: ObservableObject {
     @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Keys.showHUD) } }
     @Published var invertDirection: Bool { didSet { defaults.set(invertDirection, forKey: Keys.invertDirection); refreshSnapshot() } }
     @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Keys.sensitivity); refreshSnapshot() } }
-    @Published var menuBarIcon: String { didSet { defaults.set(menuBarIcon, forKey: Keys.menuBarIcon) } }
     @Published var launchTargetBundleId: String { didSet { defaults.set(launchTargetBundleId, forKey: Keys.launchTarget) } }
 
     // MARK: - Gesture bindings
@@ -59,17 +58,11 @@ final class AppSettings: ObservableObject {
         static let showHUD = "app_showHUD_v6"
         static let invertDirection = "app_invertDirection_v6"
         static let sensitivity = "app_sensitivity_v6"
-        static let menuBarIcon = "app_menuBarIcon_v6"
         static let launchTarget = "app_launchTarget_v6"
     }
 
-    /// Icons offered for the menu bar.
-    static let menuBarIconChoices = [
-        "hand.draw.fill", "hand.tap.fill", "hand.raised.fill",
-        "rectangle.and.hand.point.up.left.filled", "cursorarrow.motionlines", "wand.and.rays"
-    ]
-
-    static let defaultMenuBarIcon = "hand.draw.fill"
+    /// The app's glyph, used by the menu bar item and the popover header.
+    static let appGlyph = "hand.draw.fill"
 
     private init() {
         isEnabled = defaults.object(forKey: Keys.isEnabled) as? Bool ?? true
@@ -77,7 +70,6 @@ final class AppSettings: ObservableObject {
         showHUD = defaults.object(forKey: Keys.showHUD) as? Bool ?? true
         invertDirection = defaults.object(forKey: Keys.invertDirection) as? Bool ?? false
         sensitivity = defaults.object(forKey: Keys.sensitivity) as? Double ?? 0.5
-        menuBarIcon = defaults.string(forKey: Keys.menuBarIcon) ?? AppSettings.defaultMenuBarIcon
         launchTargetBundleId = defaults.string(forKey: Keys.launchTarget)
             ?? defaults.string(forKey: "app_targetBundleId_v5")
             ?? "com.apple.Notes"
@@ -125,7 +117,6 @@ final class AppSettings: ObservableObject {
         hapticsEnabled = true
         showHUD = true
         isEnabled = true
-        menuBarIcon = AppSettings.defaultMenuBarIcon
     }
 
     private func refreshSnapshot() {

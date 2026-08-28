@@ -23,6 +23,12 @@ case .performAction(let action, let up):
     application.run()
 
 case .runApp:
+    guard SingleInstance.acquire() else {
+        FileHandle.standardError.write(Data(
+            "MacGestureControl is already running — quit it first (its menu bar icon has a Quit button).\n".utf8
+        ))
+        exit(1)
+    }
     appDelegate = AppDelegate()
     application.delegate = appDelegate
     application.setActivationPolicy(.accessory) // No Dock icon

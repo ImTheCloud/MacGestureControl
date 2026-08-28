@@ -107,7 +107,7 @@ struct SettingsView: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 30, height: 30)
-                Image(systemName: "hand.draw.fill")
+                Image(systemName: AppSettings.appGlyph)
                     .foregroundColor(.white)
                     .font(.system(size: 14, weight: .bold))
             }
@@ -172,6 +172,9 @@ struct SettingsView: View {
                         .fill(isSelected ? Color.accentColor : Color.clear)
                 )
                 .foregroundColor(isSelected ? .white : .secondary)
+                // Without this only the text is hittable, not the padding
+                // around it or the highlighted pill behind it.
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -291,8 +294,6 @@ struct SettingsView: View {
                 toggleRow(icon: "arrow.up.arrow.down", title: "Invert Swipe Direction", isOn: $settings.invertDirection)
                 rowDivider
                 sensitivityRow
-                rowDivider
-                menuBarIconRow
 
                 if settings.usesLaunchApp {
                     rowDivider
@@ -322,32 +323,6 @@ struct SettingsView: View {
         case ..<0.34: return "Low"
         case ..<0.67: return "Medium"
         default: return "High"
-        }
-    }
-
-    private var menuBarIconRow: some View {
-        settingRow(icon: "menubar.arrow.up.rectangle", title: "Menu Bar Icon") {
-            HStack(spacing: 4) {
-                ForEach(AppSettings.menuBarIconChoices, id: \.self) { icon in
-                    let isCurrent = settings.menuBarIcon == icon
-                    Button {
-                        settings.menuBarIcon = icon
-                        HapticManager.shared.trigger()
-                    } label: {
-                        Image(systemName: icon)
-                            .font(.system(size: 10.5))
-                            .frame(width: 21, height: 21)
-                            .background(
-                                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                    .fill(isCurrent ? Color.accentColor.opacity(0.20) : Color.primary.opacity(0.05))
-                            )
-                            .foregroundColor(isCurrent ? .accentColor : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(icon)
-                }
-            }
-            .frame(width: Row.controlWidth, alignment: .trailing)
         }
     }
 
@@ -642,6 +617,7 @@ struct SettingsView: View {
                         .font(.system(size: 10.5))
                 }
                 .foregroundColor(.secondary)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -659,6 +635,7 @@ struct SettingsView: View {
                         .font(.system(size: 10.5, weight: .medium))
                 }
                 .foregroundColor(.red)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

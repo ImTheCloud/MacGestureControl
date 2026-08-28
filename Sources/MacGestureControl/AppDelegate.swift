@@ -49,15 +49,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover(_:))
-        updateStatusItem(icon: settings.menuBarIcon, enabled: settings.isEnabled)
+        updateStatusItem(enabled: settings.isEnabled)
     }
 
-    private func updateStatusItem(icon: String, enabled: Bool) {
+    private func updateStatusItem(enabled: Bool) {
         guard let button = statusItem.button else { return }
         let configuration = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-        let image = NSImage(systemSymbolName: icon, accessibilityDescription: "MacGesture Control")
-            ?? NSImage(systemSymbolName: AppSettings.defaultMenuBarIcon, accessibilityDescription: "MacGesture Control")
-        button.image = image?.withSymbolConfiguration(configuration)
+        button.image = NSImage(systemSymbolName: AppSettings.appGlyph, accessibilityDescription: "MacGesture Control")?
+            .withSymbolConfiguration(configuration)
         button.appearsDisabled = !enabled
     }
 
@@ -90,24 +89,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Settings observation
 
-    /// `@Published` publishes in `willSet`, so both sinks use the value they are
+    /// Dimming the icon makes the paused state visible without opening the popover.
+    /// `@Published` publishes in `willSet`, so the sink uses the value it is
     /// handed — reading the property back here would still return the old one.
     private func observeSettings() {
-        settings.$menuBarIcon
-            .removeDuplicates()
-            .sink { [weak self] icon in
-                guard let self else { return }
-                self.updateStatusItem(icon: icon, enabled: self.settings.isEnabled)
-            }
-            .store(in: &cancellables)
-
-        // Dimming the icon makes the paused state visible without opening the popover.
         settings.$isEnabled
             .removeDuplicates()
-            .sink { [weak self] enabled in
-                guard let self else { return }
-                self.updateStatusItem(icon: self.settings.menuBarIcon, enabled: enabled)
-            }
+            .sink { [weak self] enabled in self?.updateStatusItem(enabled: enabled) }
             .store(in: &cancellables)
     }
 
