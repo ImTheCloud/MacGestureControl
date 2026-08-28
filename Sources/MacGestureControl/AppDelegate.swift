@@ -67,6 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // System settings can change behind our back, so re-read before showing.
+        NativeGestureManager.shared.refresh()
         updatePopoverLayout(for: button)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()

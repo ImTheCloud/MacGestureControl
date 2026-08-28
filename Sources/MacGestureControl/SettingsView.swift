@@ -20,6 +20,7 @@ struct SettingsView: View {
     @ObservedObject private var engine = MultitouchEngine.shared
     @ObservedObject private var launchAtLogin = LaunchAtLoginManager.shared
     @ObservedObject private var permissions = PermissionMonitor.shared
+    @ObservedObject private var nativeGestures = NativeGestureManager.shared
     @ObservedObject private var layout = PopoverLayout.shared
 
     @State private var selectedTab: Tab = .dashboard
@@ -295,6 +296,21 @@ struct SettingsView: View {
                 rowDivider
                 sensitivityRow
 
+                if nativeGestures.disabledCount > 0 {
+                    rowDivider
+                    settingRow(
+                        icon: "arrow.uturn.backward",
+                        title: "macOS gestures turned off (\(nativeGestures.disabledCount))"
+                    ) {
+                        Button("Restore") {
+                            nativeGestures.restoreAll()
+                            HapticManager.shared.triggerClick()
+                        }
+                        .font(.system(size: 10, weight: .semibold))
+                        .buttonStyle(.borderless)
+                    }
+                }
+
                 if settings.usesLaunchApp {
                     rowDivider
                     launchTargetRow
@@ -399,6 +415,13 @@ struct SettingsView: View {
     // MARK: - Rows
 
     private func gestureRow(_ slot: GestureSlot, showsSlotName: Bool) -> some View {
+        VStack(spacing: 0) {
+            gestureRowBody(slot, showsSlotName: showsSlotName)
+            conflictNote(for: slot)
+        }
+    }
+
+    private func gestureRowBody(_ slot: GestureSlot, showsSlotName: Bool) -> some View {
         let action = settings.action(for: slot)
         let isAssigned = action != .none
         let isFlashing = engine.lastTriggeredSlot == slot
@@ -433,6 +456,52 @@ struct SettingsView: View {
                 .fill(isFlashing ? Color.accentColor.opacity(0.22) : Color.clear)
         )
         .animation(.easeInOut(duration: 0.2), value: isFlashing)
+    }
+
+    /// macOS keeps its own trackpad gestures and we cannot consume the touch,
+    /// so a bound slot can fire twice. Say so, and offer the only real fix.
+    @ViewBuilder
+    private func conflictNote(for slot: GestureSlot) -> some View {
+        if settings.action(for: slot) != .none {
+            if let native = slot.nativeConflict, nativeGestures.isActive(native) {
+                noteStrip(
+                    icon: "exclamationmark.triangle.fill",
+                    tint: .orange,
+                    text: "macOS also uses this for \(native.systemBehaviour)."
+                ) {
+                    Button("Turn off") {
+                        nativeGestures.setActive(false, for: native)
+                        HapticManager.shared.triggerClick()
+                    }
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .buttonStyle(.borderless)
+                }
+            } else if let limitation = slot.unavoidableConflict {
+                noteStrip(icon: "info.circle.fill", tint: .secondary, text: limitation) { EmptyView() }
+            }
+        }
+    }
+
+    private func noteStrip<Trailing: View>(
+        icon: String,
+        tint: Color,
+        text: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 9))
+                .foregroundColor(tint)
+            Text(text)
+                .font(.system(size: 9.5))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 6)
+            trailing()
+        }
+        .padding(.leading, Row.textInset)
+        .padding(.trailing, Row.horizontalPadding)
+        .padding(.bottom, 7)
     }
 
     /// Describes what the gesture actually does now, including the reverse
