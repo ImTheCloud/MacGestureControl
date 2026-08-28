@@ -204,11 +204,10 @@ class SystemController {
         DispatchQueue.global(qos: .userInitiated).async {
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            task.arguments = ["-i", "-c"] // Interactive selection, copy to clipboard
+            task.arguments = ["-i", "-c"] // Interactive area capture directly to clipboard
             try? task.run()
         }
         HapticManager.shared.triggerClick()
-        HUDManager.shared.show(icon: "camera.fill", title: "Screenshot", subtitle: "Select area to capture")
     }
 
     func launchApp(bundleId: String) {
