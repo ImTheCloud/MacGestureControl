@@ -2,5 +2,5 @@
 DerivedData/
 *.xcworkspace
 *.xcodeproj
-*.plist
-
+dist/
+.DS_Store

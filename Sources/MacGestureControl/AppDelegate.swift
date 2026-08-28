@@ -1,117 +1,124 @@
 // AppDelegate.swift
 import Cocoa
 import SwiftUI
-import CoreAudio
-import AudioToolbox
+import Combine
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-    static weak var shared: AppDelegate?
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var statusItem: NSStatusItem!
+    private var popover: NSPopover!
+    private var cancellables: Set<AnyCancellable> = []
+    private var permissionTimer: Timer?
 
-    var statusItem: NSStatusItem!
-    var popover: NSPopover!
-    var eventTap: CFMachPort?
-    var runLoopSource: CFRunLoopSource?
-
-    let settings = AppSettings.shared
+    private let settings = AppSettings.shared
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        AppDelegate.shared = self
+        setUpPopover()
+        setUpStatusItem()
+        requestAccessibilityPermission()
 
-        // 1. Setup SwiftUI Settings Popover
+        // The only input path: the multitouch engine reads the trackpad directly.
+        MultitouchEngine.shared.start()
+
+        observeSettings()
+        startPermissionWatch()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        permissionTimer?.invalidate()
+        MultitouchEngine.shared.stop()
+    }
+
+    // MARK: - UI
+
+    private func setUpPopover() {
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 410, height: 460)
         popover.behavior = .transient
         popover.animates = true
-        let hostingController = NSHostingController(rootView: SettingsView())
-        popover.contentViewController = hostingController
+        popover.contentViewController = NSHostingController(rootView: SettingsView())
         self.popover = popover
+    }
 
-        // 2. Setup Menu Bar Item
+    private func setUpStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        updateStatusItemIcon(settings.menuBarIcon)
-
-        // 3. Request Accessibility & Install Fallback Event Tap
-        requestAccessibilityPermission()
-        installEventTap()
-
-        // 4. Start Native Multitouch Engine (2, 3, 4 & 5 fingers, pinches, corner taps)
-        MultitouchEngine.shared.start()
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(togglePopover(_:))
+        updateStatusItem(icon: settings.menuBarIcon, enabled: settings.isEnabled)
     }
 
-    func updateStatusItemIcon(_ iconName: String) {
+    private func updateStatusItem(icon: String, enabled: Bool) {
         guard let button = statusItem.button else { return }
-        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-        if let img = NSImage(systemSymbolName: iconName, accessibilityDescription: "MacGesture Control")?.withSymbolConfiguration(config) {
-            button.image = img
-        } else {
-            button.image = NSImage(systemSymbolName: "hand.draw.fill", accessibilityDescription: "MacGesture Control")
-        }
-        button.target = self
-        button.action = #selector(togglePopover(_:))
+        let configuration = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let image = NSImage(systemSymbolName: icon, accessibilityDescription: "MacGesture Control")
+            ?? NSImage(systemSymbolName: AppSettings.defaultMenuBarIcon, accessibilityDescription: "MacGesture Control")
+        button.image = image?.withSymbolConfiguration(configuration)
+        button.appearsDisabled = !enabled
     }
 
-    // MARK: - Popover Handling
-    @objc func togglePopover(_ sender: AnyObject?) {
+    @objc private func togglePopover(_ sender: AnyObject?) {
         guard let button = statusItem.button else { return }
         if popover.isShown {
             popover.performClose(sender)
         } else {
-            if let hostingView = popover.contentViewController?.view {
-                let size = hostingView.fittingSize
-                popover.contentSize = NSSize(width: 410, height: max(460, size.height))
-            }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
     }
 
-    // MARK: - Accessibility Permission
-    func requestAccessibilityPermission() {
+    // MARK: - Settings observation
+
+    /// `@Published` publishes in `willSet`, so both sinks use the value they are
+    /// handed — reading the property back here would still return the old one.
+    private func observeSettings() {
+        settings.$menuBarIcon
+            .removeDuplicates()
+            .sink { [weak self] icon in
+                guard let self else { return }
+                self.updateStatusItem(icon: icon, enabled: self.settings.isEnabled)
+            }
+            .store(in: &cancellables)
+
+        // Dimming the icon makes the paused state visible without opening the popover.
+        settings.$isEnabled
+            .removeDuplicates()
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                self.updateStatusItem(icon: self.settings.menuBarIcon, enabled: enabled)
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Accessibility permission
+
+    private func requestAccessibilityPermission() {
         let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
     }
 
-    // MARK: - Event Tap (Fallback Scroll Wheel Interceptor)
-    func installEventTap() {
-        let mask = CGEventMask(1 << CGEventType.scrollWheel.rawValue)
-        let callback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
-            guard let delegatePtr = refcon else { return Unmanaged.passUnretained(event) }
-            let delegate = Unmanaged<AppDelegate>.fromOpaque(delegatePtr).takeUnretainedValue()
-
-            guard delegate.settings.isEnabled else {
-                return Unmanaged.passUnretained(event)
-            }
-
-            if type == .scrollWheel {
-                let deltaY = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
-                let deltaX = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
-
-                // Only intercept 2-finger scroll if explicitly mapped to an action
-                if abs(deltaY) > 0.4 && delegate.settings.twoFingerVerticalAction != .none {
-                    SystemController.shared.execute(delegate.settings.twoFingerVerticalAction, up: deltaY > 0)
-                }
-
-                if abs(deltaX) > 0.4 && delegate.settings.twoFingerHorizontalAction != .none {
-                    SystemController.shared.execute(delegate.settings.twoFingerHorizontalAction, up: deltaX > 0)
-                }
-            }
-
-            return Unmanaged.passUnretained(event)
+    /// macOS gives no notification when the user grants access, so the state is
+    /// polled cheaply to keep the banner in the popover accurate.
+    private func startPermissionWatch() {
+        PermissionMonitor.shared.refresh()
+        permissionTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+            PermissionMonitor.shared.refresh()
         }
+    }
+}
 
-        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        if let tap = CGEvent.tapCreate(tap: .cghidEventTap,
-                                       place: .headInsertEventTap,
-                                       options: .defaultTap,
-                                       eventsOfInterest: mask,
-                                       callback: callback,
-                                       userInfo: refcon) {
-            eventTap = tap
-            runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-            CGEvent.tapEnable(tap: tap, enable: true)
-        } else {
-            NSLog("Failed to create event tap – ensure Accessibility permission is granted.")
-        }
+/// Publishes whether the app currently holds Accessibility permission.
+final class PermissionMonitor: ObservableObject {
+    static let shared = PermissionMonitor()
+
+    @Published private(set) var isTrusted: Bool = AXIsProcessTrusted()
+
+    private init() {}
+
+    func refresh() {
+        let trusted = AXIsProcessTrusted()
+        if trusted != isTrusted { isTrusted = trusted }
+    }
+
+    func openSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
+        NSWorkspace.shared.open(url)
     }
 }

@@ -1,56 +1,60 @@
 // SettingsView.swift
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @ObservedObject var settings = AppSettings.shared
-    @ObservedObject var engine = MultitouchEngine.shared
-    @ObservedObject var launchAtLogin = LaunchAtLoginManager.shared
-    @State private var selectedTab: Int = 0
+    @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var engine = MultitouchEngine.shared
+    @ObservedObject private var launchAtLogin = LaunchAtLoginManager.shared
+    @ObservedObject private var permissions = PermissionMonitor.shared
+
+    @State private var selectedTab: Tab = .dashboard
+
+    private enum Tab: Hashable {
+        case dashboard
+        case group(GestureGroup)
+
+        var title: String {
+            switch self {
+            case .dashboard: return "Active"
+            case .group(let group): return group.tabTitle
+            }
+        }
+    }
+
+    private let tabs: [Tab] = [.dashboard] + GestureGroup.allCases.map(Tab.group)
 
     var body: some View {
         VStack(spacing: 0) {
-            // MARK: - Header
-            headerView
+            header
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
 
             Divider().opacity(0.4)
 
-            // MARK: - Unified Segmented Tab Bar (Consistent Text-Only Tabs)
-            segmentedTabBar
+            tabBar
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
 
             Divider().opacity(0.4)
 
-            // MARK: - Tab Content
-            ScrollView(showsIndicators: true) {
+            ScrollView {
                 VStack(spacing: 12) {
                     switch selectedTab {
-                    case 0:
-                        activeDashboardSection
-                    case 1:
-                        fourFingerSection
-                    case 2:
-                        threeFingerSection
-                    case 3:
-                        twoFingerSection
-                    case 4:
-                        cornersSection
-                    default:
-                        EmptyView()
+                    case .dashboard: dashboard
+                    case .group(let group): groupSection(group)
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
             }
-            .frame(height: 310)
+            .frame(height: 330)
 
             Divider().opacity(0.4)
 
-            // MARK: - Footer (Consistent Icons for all items)
-            footerView
+            footer
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
         }
@@ -59,19 +63,13 @@ struct SettingsView: View {
     }
 
     // MARK: - Header
-    private var headerView: some View {
+
+    private var header: some View {
         HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.blue, Color.purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: 30, height: 30)
-
                 Image(systemName: "hand.draw.fill")
                     .foregroundColor(.white)
                     .font(.system(size: 14, weight: .bold))
@@ -80,358 +78,462 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("MacGesture Control")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(settings.isEnabled ? Color.green : Color.secondary.opacity(0.5))
+                        .fill(statusColor)
                         .frame(width: 5, height: 5)
-                    Text(settings.isEnabled ? "Active & Listening" : "Paused")
+                    Text(statusText)
                         .font(.system(size: 10))
-                        .foregroundColor(settings.isEnabled ? .green : .secondary)
+                        .foregroundColor(statusColor)
                 }
             }
 
             Spacer()
 
             Toggle("", isOn: $settings.isEnabled)
-                .toggleStyle(SwitchToggleStyle())
+                .toggleStyle(.switch)
                 .labelsHidden()
                 .scaleEffect(0.85)
         }
     }
 
-    // MARK: - Unified Segmented Tab Bar (Clean, Consistent Text-Only Tabs)
-    private var segmentedTabBar: some View {
-        HStack(spacing: 3) {
-            tabItem(title: "Active", index: 0)
-            tabItem(title: "4 Fingers", index: 1)
-            tabItem(title: "3 Fingers", index: 2)
-            tabItem(title: "2 Fingers", index: 3)
-            tabItem(title: "Corners", index: 4)
-        }
-        .padding(3)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
-        )
+    private var statusColor: Color {
+        guard settings.isEnabled else { return .secondary }
+        return permissions.isTrusted ? .green : .orange
     }
 
-    private func tabItem(title: String, index: Int) -> some View {
-        Button(action: {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                selectedTab = index
+    private var statusText: String {
+        guard settings.isEnabled else { return "Paused" }
+        return permissions.isTrusted ? "Active & listening" : "Waiting for permission"
+    }
+
+    // MARK: - Tabs
+
+    private var tabBar: some View {
+        HStack(spacing: 3) {
+            ForEach(tabs, id: \.self) { tab in
+                tabItem(tab)
             }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.06)))
+    }
+
+    private func tabItem(_ tab: Tab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            withAnimation(.easeInOut(duration: 0.15)) { selectedTab = tab }
             HapticManager.shared.trigger()
-        }) {
-            Text(title)
-                .font(.system(size: 11, weight: selectedTab == index ? .semibold : .regular))
+        } label: {
+            Text(tab.title)
+                .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
                 .lineLimit(1)
                 .padding(.vertical, 5)
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(selectedTab == index ? Color.accentColor : Color.clear)
+                        .fill(isSelected ? Color.accentColor : Color.clear)
                 )
-                .foregroundColor(selectedTab == index ? .white : .secondary)
+                .foregroundColor(isSelected ? .white : .secondary)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Tab 0: Active Dashboard
-    private var activeDashboardSection: some View {
+    // MARK: - Dashboard
+
+    private var dashboard: some View {
         VStack(spacing: 12) {
-            // Enabled Gestures Inset Group
+            if !permissions.isTrusted {
+                permissionBanner
+            }
+
+            activeGestures
+            TouchVisualizerView()
+            preferences
+        }
+    }
+
+    private var permissionBanner: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 13))
+                .foregroundColor(.orange)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Accessibility access required")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("Gestures cannot control your Mac until it is granted.")
+                    .font(.system(size: 9.5))
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer(minLength: 6)
+
+            Button("Open") { permissions.openSettings() }
+                .font(.system(size: 10, weight: .semibold))
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.orange.opacity(0.12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.orange.opacity(0.35), lineWidth: 0.8)
+                )
+        )
+    }
+
+    private var activeGestures: some View {
+        let assigned = settings.assignedSlots
+
+        return VStack(spacing: 0) {
+            sectionHeader(icon: "bolt.fill", text: "ACTIVE GESTURES")
+
             VStack(spacing: 0) {
-                headerLabel(icon: "bolt.fill", text: "ACTIVE GESTURES")
-
-                VStack(spacing: 0) {
-                    if settings.fourFingerVerticalAction != .none {
-                        gestureRow(
-                            id: "fourFingerVertical",
-                            icon: "speaker.wave.3.fill",
-                            title: "4-Finger Swipe",
-                            subtitle: "System Volume control",
-                            binding: $settings.fourFingerVerticalAction
-                        )
+                if assigned.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "moon.zzz.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Text("No gestures assigned yet — pick one from a tab above.")
+                            .font(.system(size: 10.5))
+                            .foregroundColor(.secondary)
+                        Spacer()
                     }
-
-                    if settings.fourFingerTapAction != .none {
-                        if settings.fourFingerVerticalAction != .none { rowDivider }
-                        gestureRow(
-                            id: "fourFingerTap",
-                            icon: "playpause.fill",
-                            title: "4-Finger Tap",
-                            subtitle: "Play / Pause (Spotify, Music)",
-                            binding: $settings.fourFingerTapAction
-                        )
-                    }
-
-                    if settings.threeFingerTapAction != .none {
-                        if settings.fourFingerVerticalAction != .none || settings.fourFingerTapAction != .none { rowDivider }
-                        gestureRow(
-                            id: "threeFingerTap",
-                            icon: "camera.fill",
-                            title: "3-Finger Tap",
-                            subtitle: "Instant Screenshot (Cmd+Shift+4)",
-                            binding: $settings.threeFingerTapAction
-                        )
-                    }
-
-                    if settings.threeFingerHorizontalAction != .none {
-                        rowDivider
-                        gestureRow(id: "threeFingerHorizontal", icon: "arrow.left.and.right", title: "3-Finger Swipe", subtitle: "Slide left / right", binding: $settings.threeFingerHorizontalAction)
-                    }
-                    if settings.twoFingerTapAction != .none {
-                        rowDivider
-                        gestureRow(id: "twoFingerTap", icon: "hand.tap.fill", title: "2-Finger Tap", subtitle: "Secondary tap action", binding: $settings.twoFingerTapAction)
-                    }
-                    if settings.cornerTopLeftAction != .none {
-                        rowDivider
-                        gestureRow(id: "cornerTopLeft", icon: "square.topthird.inset.filled", title: "Top-Left Corner", subtitle: "Corner trigger", binding: $settings.cornerTopLeftAction)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 12)
+                } else {
+                    ForEach(Array(assigned.enumerated()), id: \.element) { index, slot in
+                        if index > 0 { rowDivider }
+                        gestureRow(slot, showsSlotName: true)
                     }
                 }
-                .background(cardBackground)
             }
+            .background(cardBackground)
+        }
+    }
 
-            // System Options Inset Group
+    private var preferences: some View {
+        VStack(spacing: 0) {
+            sectionHeader(icon: "gearshape.fill", text: "PREFERENCES")
+
             VStack(spacing: 0) {
-                headerLabel(icon: "gearshape.fill", text: "PREFERENCES")
-
-                VStack(spacing: 0) {
-                    toggleRow(
-                        icon: "bolt.fill",
-                        title: "Launch at Login",
-                        isOn: Binding(
-                            get: { launchAtLogin.isEnabled },
-                            set: { launchAtLogin.setEnabled($0) }
-                        )
+                toggleRow(
+                    icon: "bolt.fill",
+                    title: "Launch at Login",
+                    isOn: Binding(
+                        get: { launchAtLogin.isEnabled },
+                        set: { launchAtLogin.setEnabled($0) }
                     )
+                )
+                rowDivider
+                toggleRow(icon: "hand.tap.fill", title: "Haptic Feedback", isOn: $settings.hapticsEnabled)
+                rowDivider
+                toggleRow(icon: "macwindow.on.rectangle", title: "On-Screen HUD", isOn: $settings.showHUD)
+                rowDivider
+                toggleRow(icon: "arrow.up.arrow.down", title: "Invert Swipe Direction", isOn: $settings.invertDirection)
+                rowDivider
+                sensitivityRow
+                rowDivider
+                menuBarIconRow
 
+                if settings.usesLaunchApp {
                     rowDivider
-
-                    toggleRow(
-                        icon: "iphone.radiowaves.left.and.right",
-                        title: "Haptic Feedback (Taptic Engine)",
-                        isOn: $settings.hapticsEnabled
-                    )
-
-                    rowDivider
-
-                    toggleRow(
-                        icon: "macwindow.on.rectangle",
-                        title: "On-Screen HUD Overlay",
-                        isOn: $settings.showHUD
-                    )
+                    launchTargetRow
                 }
-                .background(cardBackground)
-            }
-        }
-    }
-
-    // MARK: - Tab 1: 4-Finger Section
-    private var fourFingerSection: some View {
-        VStack(spacing: 0) {
-            headerLabel(icon: "hand.raised.fill", text: "4-FINGER GESTURES")
-
-            VStack(spacing: 0) {
-                gestureRow(
-                    id: "fourFingerVertical",
-                    icon: "arrow.up.and.down",
-                    title: "Vertical Swipe",
-                    subtitle: "Slide up or down on trackpad",
-                    binding: $settings.fourFingerVerticalAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "fourFingerTap",
-                    icon: "hand.tap.fill",
-                    title: "Single Tap",
-                    subtitle: "Brief tap with 4 fingers",
-                    binding: $settings.fourFingerTapAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "fourFingerHorizontal",
-                    icon: "arrow.left.and.right",
-                    title: "Horizontal Swipe",
-                    subtitle: "Slide left or right on trackpad",
-                    binding: $settings.fourFingerHorizontalAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "fourFingerPinchIn",
-                    icon: "arrow.down.right.and.arrow.up.left",
-                    title: "Pinch In",
-                    subtitle: "Pinch fingers closer together",
-                    binding: $settings.fourFingerPinchInAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "fourFingerPinchOut",
-                    icon: "arrow.up.left.and.arrow.down.right",
-                    title: "Spread Out",
-                    subtitle: "Spread fingers apart",
-                    binding: $settings.fourFingerPinchOutAction
-                )
             }
             .background(cardBackground)
         }
     }
 
-    // MARK: - Tab 2: 3-Finger Section
-    private var threeFingerSection: some View {
+    private var sensitivityRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "dial.medium.fill")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .frame(width: 18)
+
+            Text("Sensitivity")
+                .font(.system(size: 11))
+
+            Spacer(minLength: 8)
+
+            Slider(value: $settings.sensitivity, in: 0...1)
+                .controlSize(.mini)
+                .frame(width: 120)
+
+            Text(sensitivityLabel)
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundColor(.secondary)
+                .frame(width: 42, alignment: .trailing)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private var sensitivityLabel: String {
+        switch settings.sensitivity {
+        case ..<0.34: return "Low"
+        case ..<0.67: return "Medium"
+        default: return "High"
+        }
+    }
+
+    private var menuBarIconRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "menubar.arrow.up.rectangle")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .frame(width: 18)
+
+            Text("Menu Bar Icon")
+                .font(.system(size: 11))
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                ForEach(AppSettings.menuBarIconChoices, id: \.self) { icon in
+                    Button {
+                        settings.menuBarIcon = icon
+                        HapticManager.shared.trigger()
+                    } label: {
+                        Image(systemName: icon)
+                            .font(.system(size: 10))
+                            .frame(width: 20, height: 20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .fill(settings.menuBarIcon == icon
+                                          ? Color.accentColor.opacity(0.20)
+                                          : Color.primary.opacity(0.05))
+                            )
+                            .foregroundColor(settings.menuBarIcon == icon ? .accentColor : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private var launchTargetRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.up.forward.app.fill")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .frame(width: 18)
+
+            Text("Launch Target")
+                .font(.system(size: 11))
+
+            Spacer(minLength: 6)
+
+            Button {
+                chooseLaunchTarget()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(launchTargetName)
+                        .font(.system(size: 10, weight: .semibold))
+                        .lineLimit(1)
+                    Image(systemName: "folder")
+                        .font(.system(size: 8))
+                }
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
+                .frame(width: 118, alignment: .trailing)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.accentColor.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(Color.accentColor.opacity(0.35), lineWidth: 0.8)
+                        )
+                )
+                .foregroundColor(.accentColor)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    private var launchTargetName: String {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: settings.launchTargetBundleId) else {
+            return "Choose…"
+        }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+
+    private func chooseLaunchTarget() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "Choose"
+
+        // Accessory apps are not frontmost, so the panel needs an explicit nudge.
+        NSApp.activate(ignoringOtherApps: true)
+
+        guard panel.runModal() == .OK,
+              let url = panel.url,
+              let bundleId = Bundle(url: url)?.bundleIdentifier else { return }
+        settings.launchTargetBundleId = bundleId
+    }
+
+    // MARK: - Gesture tabs
+
+    private func groupSection(_ group: GestureGroup) -> some View {
         VStack(spacing: 0) {
-            headerLabel(icon: "hand.point.up.left.fill", text: "3-FINGER GESTURES")
+            sectionHeader(icon: group.sectionIcon, text: group.sectionTitle)
 
             VStack(spacing: 0) {
-                gestureRow(
-                    id: "threeFingerTap",
-                    icon: "camera.fill",
-                    title: "Single Tap",
-                    subtitle: "Brief tap with 3 fingers",
-                    binding: $settings.threeFingerTapAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "threeFingerHorizontal",
-                    icon: "arrow.left.and.right",
-                    title: "Horizontal Swipe",
-                    subtitle: "Slide left or right with 3 fingers",
-                    binding: $settings.threeFingerHorizontalAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "threeFingerVertical",
-                    icon: "arrow.up.and.down",
-                    title: "Vertical Swipe",
-                    subtitle: "Slide up or down with 3 fingers",
-                    binding: $settings.threeFingerVerticalAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "threeFingerPinchIn",
-                    icon: "arrow.down.right.and.arrow.up.left",
-                    title: "Pinch In",
-                    subtitle: "Pinch in with 3 fingers",
-                    binding: $settings.threeFingerPinchInAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "threeFingerPinchOut",
-                    icon: "arrow.up.left.and.arrow.down.right",
-                    title: "Spread Out",
-                    subtitle: "Spread out with 3 fingers",
-                    binding: $settings.threeFingerPinchOutAction
-                )
+                ForEach(Array(group.slots.enumerated()), id: \.element) { index, slot in
+                    if index > 0 { rowDivider }
+                    gestureRow(slot, showsSlotName: false)
+                }
             }
             .background(cardBackground)
         }
     }
 
-    // MARK: - Tab 3: 2-Finger Section
-    private var twoFingerSection: some View {
-        VStack(spacing: 0) {
-            headerLabel(icon: "hand.tap.fill", text: "2-FINGER GESTURES")
+    // MARK: - Rows
 
-            VStack(spacing: 0) {
-                gestureRow(
-                    id: "twoFingerTap",
-                    icon: "hand.tap.fill",
-                    title: "Single Tap",
-                    subtitle: "Tap with 2 fingers simultaneously",
-                    binding: $settings.twoFingerTapAction
-                )
+    private func gestureRow(_ slot: GestureSlot, showsSlotName: Bool) -> some View {
+        let action = settings.action(for: slot)
+        let isAssigned = action != .none
+        let isFlashing = engine.lastTriggeredSlot == slot
 
-                rowDivider
-
-                gestureRow(
-                    id: "twoFingerVertical",
-                    icon: "arrow.up.and.down",
-                    title: "Vertical Scroll Override",
-                    subtitle: "Overrides macOS web scrolling",
-                    binding: $settings.twoFingerVerticalAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "twoFingerHorizontal",
-                    icon: "arrow.left.and.right",
-                    title: "Horizontal Scroll Override",
-                    subtitle: "Overrides horizontal scrolling",
-                    binding: $settings.twoFingerHorizontalAction
-                )
+        return HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isAssigned ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
+                    .frame(width: 26, height: 26)
+                Image(systemName: slot.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(isAssigned ? .accentColor : .secondary)
             }
-            .background(cardBackground)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(showsSlotName ? slot.fullTitle : slot.title)
+                    .font(.system(size: 11.5, weight: .medium))
+                Text(description(for: slot, action: action))
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 6)
+
+            actionPicker(for: slot, action: action)
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isFlashing ? Color.accentColor.opacity(0.22) : Color.clear)
+        )
+        .animation(.easeInOut(duration: 0.2), value: isFlashing)
     }
 
-    // MARK: - Tab 4: Corner Taps Section
-    private var cornersSection: some View {
-        VStack(spacing: 0) {
-            headerLabel(icon: "square.grid.2x2.fill", text: "CORNER TAPS")
+    /// Describes what the gesture actually does now, including the reverse
+    /// direction of a swipe, instead of a hard-coded caption.
+    private func description(for slot: GestureSlot, action: GestureAction) -> String {
+        guard action != .none else { return slot.subtitle }
 
-            VStack(spacing: 0) {
-                gestureRow(
-                    id: "cornerTopLeft",
-                    icon: "square.topthird.inset.filled",
-                    title: "Top-Left Corner",
-                    subtitle: "Tap top-left corner of trackpad",
-                    binding: $settings.cornerTopLeftAction
-                )
+        let isSwipe = slot.kind == .swipeVertical || slot.kind == .swipeHorizontal
+        guard isSwipe else { return action.title }
 
-                rowDivider
-
-                gestureRow(
-                    id: "cornerTopRight",
-                    icon: "square.trailingthird.inset.filled",
-                    title: "Top-Right Corner",
-                    subtitle: "Tap top-right corner of trackpad",
-                    binding: $settings.cornerTopRightAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "cornerBottomLeft",
-                    icon: "square.bottomthird.inset.filled",
-                    title: "Bottom-Left Corner",
-                    subtitle: "Tap bottom-left corner of trackpad",
-                    binding: $settings.cornerBottomLeftAction
-                )
-
-                rowDivider
-
-                gestureRow(
-                    id: "cornerBottomRight",
-                    icon: "square.trailingthird.inset.filled",
-                    title: "Bottom-Right Corner",
-                    subtitle: "Tap bottom-right corner of trackpad",
-                    binding: $settings.cornerBottomRightAction
-                )
-            }
-            .background(cardBackground)
+        if action.isContinuous {
+            return slot.kind == .swipeVertical ? "Up raises · down lowers" : "Right raises · left lowers"
         }
+        guard action.hasDistinctInverse else { return action.title }
+
+        let forward = slot.kind == .swipeVertical ? "Up" : "Right"
+        let backward = slot.kind == .swipeVertical ? "Down" : "Left"
+        return "\(forward): \(action.shortTitle) · \(backward): \(action.inverse.shortTitle)"
     }
 
-    // MARK: - Reusable UI Helpers
-    private func headerLabel(icon: String, text: String) -> some View {
+    private func actionPicker(for slot: GestureSlot, action: GestureAction) -> some View {
+        let isAssigned = action != .none
+
+        return Menu {
+            Button {
+                settings.setAction(.none, for: slot)
+                HapticManager.shared.trigger()
+            } label: {
+                Label(GestureAction.none.title, systemImage: GestureAction.none.icon)
+            }
+
+            ForEach(ActionCategory.allCases) { category in
+                let options = GestureAction.allCases.filter { $0 != .none && $0.category == category }
+                if !options.isEmpty {
+                    Section(category.rawValue) {
+                        ForEach(options) { option in
+                            Button {
+                                settings.setAction(option, for: slot)
+                                HapticManager.shared.trigger()
+                            } label: {
+                                Label(option.title, systemImage: option.icon)
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: action.icon)
+                    .font(.system(size: 9, weight: .semibold))
+                Text(action.shortTitle)
+                    .font(.system(size: 10, weight: isAssigned ? .semibold : .regular))
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 7))
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3.5)
+            .frame(width: 118, alignment: .trailing)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(isAssigned ? Color.accentColor.opacity(0.35) : Color.primary.opacity(0.08), lineWidth: 0.8)
+                    )
+            )
+            .foregroundColor(isAssigned ? .accentColor : .secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+                .frame(width: 18)
+
+            Text(title)
+                .font(.system(size: 11))
+
+            Spacer()
+
+            Toggle("", isOn: isOn)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .scaleEffect(0.75)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Shared chrome
+
+    private func sectionHeader(icon: String, text: String) -> some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 9, weight: .bold))
@@ -459,115 +561,15 @@ struct SettingsView: View {
             )
     }
 
-    // MARK: - Gesture Row Component
-    private func gestureRow(id: String, icon: String, title: String, subtitle: String, binding: Binding<GestureAction>) -> some View {
-        let isFlashing = engine.lastTriggeredGestureId == id
-        let isAssigned = binding.wrappedValue != .none
-
-        return HStack(spacing: 10) {
-            // Left Icon Badge
-            ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isAssigned ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
-                    .frame(width: 26, height: 26)
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(isAssigned ? .accentColor : .secondary)
-            }
-
-            // Title & Subtitle
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundColor(.primary)
-                Text(subtitle)
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 6)
-
-            // Right Action Menu Button
-            Menu {
-                ForEach(GestureAction.allCases) { action in
-                    Button(action: {
-                        binding.wrappedValue = action
-                        HapticManager.shared.trigger()
-                    }) {
-                        HStack {
-                            Label(action.title, systemImage: action.icon)
-                            if binding.wrappedValue == action {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: binding.wrappedValue.icon)
-                        .font(.system(size: 9, weight: .semibold))
-                    Text(binding.wrappedValue.shortTitle)
-                        .font(.system(size: 10, weight: isAssigned ? .semibold : .regular))
-                        .lineLimit(1)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 7))
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3.5)
-                .frame(width: 118, alignment: .trailing)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(isAssigned ? Color.accentColor.opacity(0.35) : Color.primary.opacity(0.08), lineWidth: 0.8)
-                        )
-                )
-                .foregroundColor(isAssigned ? .accentColor : .secondary)
-            }
-            .menuStyle(.borderlessButton)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isFlashing ? Color.accentColor.opacity(0.22) : Color.clear)
-        )
-        .animation(.easeInOut(duration: 0.2), value: isFlashing)
-    }
-
-    // MARK: - Toggle Row Component
-    private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .frame(width: 18)
-
-            Text(title)
-                .font(.system(size: 11))
-
-            Spacer()
-
-            Toggle("", isOn: isOn)
-                .toggleStyle(SwitchToggleStyle())
-                .labelsHidden()
-                .scaleEffect(0.75)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-    }
-
     // MARK: - Footer
-    private var footerView: some View {
+
+    private var footer: some View {
         HStack {
             Link(destination: URL(string: "https://github.com/ImTheCloud/MacGestureControl")!) {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .foregroundColor(.yellow)
                         .font(.system(size: 9))
+                        .foregroundColor(.yellow)
                     Text("GitHub")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
@@ -576,11 +578,11 @@ struct SettingsView: View {
 
             Spacer()
 
-            Button(action: {
+            Button {
                 settings.resetToDefaults()
                 HUDManager.shared.show(icon: "arrow.counterclockwise", title: "Reset to Defaults")
                 HapticManager.shared.triggerClick()
-            }) {
+            } label: {
                 HStack(spacing: 3) {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.system(size: 8))
@@ -591,11 +593,13 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            Text("•").foregroundColor(.secondary).font(.system(size: 8))
+            Text("•")
+                .font(.system(size: 8))
+                .foregroundColor(.secondary)
 
-            Button(action: {
+            Button {
                 NSApplication.shared.terminate(nil)
-            }) {
+            } label: {
                 HStack(spacing: 3) {
                     Image(systemName: "power")
                         .font(.system(size: 8))
@@ -609,21 +613,21 @@ struct SettingsView: View {
     }
 }
 
-// Background Visual Effect for macOS vibrancy
+/// macOS vibrancy behind the popover.
 struct VisualEffectView: NSViewRepresentable {
     let material: NSVisualEffectView.Material
     let blendingMode: NSVisualEffectView.BlendingMode
 
     func makeNSView(context: Context) -> NSVisualEffectView {
-        let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = material
-        visualEffectView.blendingMode = blendingMode
-        visualEffectView.state = .active
-        return visualEffectView
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
     }
 
-    func updateNSView(_ visualEffectView: NSVisualEffectView, context: Context) {
-        visualEffectView.material = material
-        visualEffectView.blendingMode = blendingMode
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = material
+        view.blendingMode = blendingMode
     }
 }

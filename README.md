@@ -1,105 +1,151 @@
-# 🖐️ MacGesture Control Pro
+# 🖐️ MacGesture Control
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-macOS%2013%2B-blue?style=for-the-badge&logo=apple" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9%2B-orange?style=for-the-badge&logo=swift" alt="Swift 5.9+">
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/Architecture-Apple%20Silicon%20%26%20Intel-purple?style=for-the-badge" alt="Universal">
+  <img src="https://img.shields.io/badge/Universal-Apple%20Silicon%20%26%20Intel-purple?style=for-the-badge" alt="Universal">
 </p>
 
 <p align="center">
-  <b>A lightweight, ultra-sleek open-source macOS menu bar app that brings powerful multi-touch trackpad gestures, window snapping, media controls, middle-click simulation, and a Dynamic HUD to your Mac.</b>
+  <b>A small, open-source macOS menu bar app that turns extra trackpad gestures into
+  volume, media, window and desktop controls — without getting in the way of the
+  gestures macOS already gives you.</b>
 </p>
 
 ---
 
-## ✨ Key Highlights
+## ✨ Highlights
 
-- 🔇 **Zero Interference by Default**: All gestures are disabled out of the box except **4-Finger Vertical Swipe for System Volume**, preserving 100% of standard macOS 2-finger web scrolling and native gestures.
-- 🖐️ **Native Multitouch Engine**: Direct hardware trackpad touch tracking for **2, 3, and 4 fingers**, including Swipes, Quick Taps, Pinch / Spread, and Corner Taps.
-- 🪟 **Instant Window Snapping**: Snap windows to **Left Half**, **Right Half**, **Maximize**, **Center**, or **Minimize** with a single gesture.
-- 🎯 **3-Finger Middle Click**: Simulate genuine middle-clicks on trackpads for opening links in new browser tabs, closing tabs, or CAD 3D navigation.
-- 🖥️ **Dynamic Island / Sonoma HUD**: Floating translucent on-screen feedback with progress bars for volume, brightness, mute state, and window actions.
-- ⚡ **Taptic Engine Haptic Feedback**: Subtle physical clicks felt on your trackpad as gestures trigger.
-- 📡 **Live Trackpad Touch Radar**: Real-time visual touch canvas inside the settings popover showing finger positions.
-- 🚀 **Launch at Login**: Auto-start on system boot via native `SMAppService` and LaunchAgent support.
-- 🎨 **Modern macOS Native UI**: Built with pure SwiftUI, macOS vibrancy materials, custom menu bar icons, and instant `UserDefaults` persistence.
+- **Quiet by default.** A fresh install binds exactly two gestures: 4-finger swipe for volume, 4-finger tap for play/pause. Everything else is off, so native macOS scrolling and swiping keep working untouched.
+- **Reads the trackpad directly.** Uses the `MultitouchSupport` framework for true finger counts, so gestures are recognised by how many fingers are down — not by intercepting scroll events. Built-in and external Magic Trackpads both work.
+- **Gestures that don't collide.** One touch produces one gesture: a swipe locks to a single axis, a pinch cannot fire mid-swipe, and a swipe can never be mistaken for a tap.
+- **Both directions from one binding.** Bind "Next Track" to a horizontal swipe and the reverse swipe gives you "Previous Track" automatically. Same for snap left/right, Mission Control/Show Desktop and desktop switching.
+- **26 actions** across audio, display, media, windows, desktops and system, grouped in the picker.
+- **Live HUD and haptics.** A floating overlay confirms every action, with a progress bar for volume and brightness, and a Taptic Engine tick as it fires.
+- **Live trackpad view.** Watch what the engine sees while you configure gestures.
 
 ---
 
-## 🖐️ Gesture & Feature Matrix
+## 🖐️ Gesture matrix
 
-| Gesture | Default Setting | Supported Actions |
+| Gesture | Default | Notes |
 |---|---|---|
-| **4-Finger Swipe Up / Down** | 🔊 **System Volume (Active)** | Volume, Brightness, Track Navigation, Snapping, Apps |
-| **4-Finger Swipe Left / Right** | *Disabled* | Next/Prev Track, Window Snapping, Mission Control |
-| **4-Finger Quick Tap** | *Disabled* | Launch App, Screenshot, Lock Screen, Desktop |
-| **4-Finger Pinch In / Out** | *Disabled* | Show Desktop, Mission Control, Maximize Window |
-| **3-Finger Quick Tap** | *Disabled* | **Middle Click**, Play/Pause, Mute, App Launch |
-| **3-Finger Swipe Left / Right** | *Disabled* | Next / Previous Media Track, Snap Windows |
-| **3-Finger Swipe Up / Down** | *Disabled* | Volume, Brightness, Play/Pause Media |
-| **2-Finger Quick Tap** | *Disabled* | Any custom action |
-| **Trackpad Corner Taps** | *Disabled* | Top-Left, Top-Right, Bottom-Left, Bottom-Right actions |
+| **4-finger swipe ↕** | 🔊 System Volume | Repeats while you keep swiping |
+| **4-finger tap** | ⏯️ Play / Pause | Works with any media app via the hardware media keys |
+| **4-finger swipe ↔** | *off* | |
+| **4-finger pinch / spread** | *off* | |
+| **3-finger swipe ↕ ↔, tap, pinch / spread** | *off* | |
+| **2-finger swipe ↕ ↔, tap** | *off* | Leave these off to keep normal scrolling untouched |
+| **1-finger corner taps** (×4) | *off* | Tap a corner of the trackpad |
+
+Every slot can be bound to any action:
+
+| Category | Actions |
+|---|---|
+| **Audio** | System Volume · Mute / Unmute |
+| **Display** | Screen Brightness · Sleep Display · Lock Screen |
+| **Media** | Play / Pause · Next Track · Previous Track |
+| **Windows** | Snap Left / Right / Top / Bottom · Maximize · Center · Minimize · Toggle Full Screen · Close Window |
+| **Desktop & Spaces** | Mission Control · App Exposé · Show Desktop · Next / Previous Desktop |
+| **System** | Screenshot to Clipboard · Spotlight · Middle Click · Launch Application |
 
 ---
 
-## 🚀 Quick Start & Installation
+## 🚀 Install
 
-### Option 1: Run with Swift CLI (Recommended for Developers)
+### Build the app bundle (recommended)
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/ImTheCloud/MacGestureControl.git
 cd MacGestureControl
+./Scripts/build-app.sh
+```
 
-# 2. Build and launch directly
+This produces a universal `dist/MacGestureControl.app`. Move it to `/Applications`
+and launch it. A bundle is worth the extra step: macOS grants Accessibility
+access to the app itself rather than to your terminal, and *Launch at Login*
+can then use the supported `SMAppService` API.
+
+### Or run it straight from source
+
+```bash
 swift run
 ```
 
-### Option 2: Build Release Binary
-
-```bash
-# Build optimized binary
-swift build -c release
-
-# Launch in background
-./.build/release/MacGestureControl &
-```
+Handy while hacking on it, but Accessibility permission is attached to your
+terminal, and *Launch at Login* falls back to a LaunchAgent plist.
 
 ---
 
-## 🔒 Permissions & Security
+## 🔒 Permissions
 
-MacGestureControl requires **Accessibility (Input Monitoring)** permissions to listen to global multi-touch trackpad events and manage window positions:
+MacGesture Control asks for **Accessibility** access on first launch, and shows a
+banner in the popover until it is granted.
 
-1. On first launch, macOS will prompt you to grant Accessibility access.
-2. Open **System Settings → Privacy & Security → Accessibility**.
-3. Toggle the switch **ON** for your Terminal (or `MacGestureControl` app).
+1. Open **System Settings → Privacy & Security → Accessibility**.
+2. Enable **MacGestureControl** (or your terminal, if running with `swift run`).
+3. Reopen the popover — the status dot turns green.
+
+Reading the trackpad works without it, but the actions themselves — synthesised
+key presses, window management, middle click — do not.
+
+No network access, no analytics, no bundled dependencies. Settings live in
+`UserDefaults`.
 
 ---
 
-## 🛠️ Architecture & Technologies
+## 🛠️ How it works
 
-- **SwiftUI & AppKit**: Seamlessly blends modern declarative SwiftUI with native `NSPopover`, `NSStatusItem`, and `NSVisualEffectView`.
-- **Private MultitouchSupport Framework**: Dynamically loaded via `dlopen`/`dlsym` to access real-time finger count, coordinate deltas, and velocity without private header linking issues.
-- **CoreAudio & AudioToolbox**: Direct hardware device volume manipulation (`kAudioHardwareServiceDeviceProperty_VirtualMainVolume`).
-- **macOS Accessibility API (`AXUIElement`)**: Zero-dependency window positioning and resizing.
-- **NSHapticFeedbackManager**: Direct Taptic Engine driver for responsive gesture triggers.
+| File | Responsibility |
+|---|---|
+| `MultitouchEngine` | Reads raw finger frames and recognises swipes, taps, pinches and corner taps |
+| `GestureSlot` / `GestureAction` | Describe every bindable gesture and every action once, so the engine, UI and storage cannot drift apart |
+| `AppSettings` | Persistence, plus an immutable snapshot the realtime touch thread can read safely |
+| `SystemController` | Performs the action: CoreAudio, DisplayServices, media keys, synthesised keystrokes |
+| `WindowManager` | Window geometry through the Accessibility API |
+| `SettingsView` | The popover, generated from the gesture slots |
+| `HUDOverlay` | The floating confirmation panel |
+
+`MultitouchEngine.handleFrame` is the single boundary where a raw frame becomes
+a finger count, and it reads settings through an injectable provider — which is
+what makes the recogniser testable.
+
+**Recognition, briefly.** Fingers never land at exactly the same moment, so the
+engine waits for the finger count to hold steady before any movement counts.
+Movement is then measured from the settled position: a swipe locks onto whichever
+axis crosses its threshold first, continuous actions (volume, brightness) repeat
+as you keep going while discrete ones fire once per swipe, and a touch that
+produced no motion at all — brief and barely moved — is what becomes a tap.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions, feature suggestions, and pull requests are welcome!
+Issues and pull requests are welcome.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingGesture`)
-3. Commit your Changes (`git commit -m 'Add AmazingGesture'`)
-4. Push to the Branch (`git push origin feature/AmazingGesture`)
-5. Open a Pull Request
+```bash
+swift build          # debug build
+swift test           # gesture recognition tests
+./Scripts/build-app.sh
+```
+
+The recogniser is driven by synthetic touch frames in
+`Tests/MacGestureControlTests`, so gesture behaviour — taps versus swipes, axis
+locking, direction handling, corner regions — can be verified without a
+trackpad and without touching your system.
+
+1. Fork the project
+2. Create a branch (`git checkout -b feature/amazing-gesture`)
+3. Commit your changes
+4. Open a pull request
+
+New actions only need a case in `GestureAction` (title, icon, category, and its
+`inverse` if the reverse swipe should do something different) plus a branch in
+`SystemController.execute` — the settings UI picks them up on its own.
 
 ---
 
 ## 📄 License
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
+MIT — see [LICENSE](LICENSE).

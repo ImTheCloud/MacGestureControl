@@ -1,80 +1,90 @@
 // HUDOverlay.swift
+// Floating on-screen confirmation shown when a gesture fires.
 import SwiftUI
 import AppKit
 
-class HUDManager {
+final class HUDManager {
     static let shared = HUDManager()
 
-    private var hudWindow: NSPanel?
+    private let panelSize = NSSize(width: 244, height: 84)
+    private var panel: NSPanel?
     private var dismissTimer: Timer?
-    private var hudData = HUDData()
+    private let data = HUDData()
 
-    private init() {
-        setupWindow()
+    private init() {}
+
+    func show(icon: String, title: String, subtitle: String? = nil, progress: Float? = nil) {
+        guard AppSettings.shared.showHUD else { return }
+
+        // The panel is AppKit, so it is only ever created and touched on the main thread.
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.show(icon: icon, title: title, subtitle: subtitle, progress: progress) }
+            return
+        }
+
+        let panel = ensurePanel()
+
+        data.icon = icon
+        data.title = title
+        data.subtitle = subtitle
+        data.progress = progress
+        data.isVisible = true
+
+        position(panel)
+        panel.orderFrontRegardless()
+
+        dismissTimer?.invalidate()
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: 1.4, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.data.isVisible = false
+            // Let the fade-out animation finish before pulling the window.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if !self.data.isVisible { self.panel?.orderOut(nil) }
+            }
+        }
     }
 
-    private func setupWindow() {
+    private func ensurePanel() -> NSPanel {
+        if let panel { return panel }
+
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 220, height: 74),
+            contentRect: NSRect(origin: .zero, size: panelSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.level = .floating
+        panel.level = .statusBar
         panel.ignoresMouseEvents = true
-        panel.hasShadow = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        panel.hasShadow = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        panel.contentView = NSHostingView(rootView: HUDView(data: data))
 
-        let hostingView = NSHostingView(rootView: HUDView(data: hudData))
-        panel.contentView = hostingView
-
-        self.hudWindow = panel
+        self.panel = panel
+        return panel
     }
 
-    func show(icon: String, title: String, subtitle: String? = nil, progress: Float? = nil) {
-        guard AppSettings.shared.showHUD else { return }
+    /// Shown on the display the pointer is on, so it appears where the user is looking.
+    private func position(_ panel: NSPanel) {
+        let pointer = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(pointer) }
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+        guard let area = screen?.visibleFrame else { return }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self, let panel = self.hudWindow else { return }
-
-            self.hudData.icon = icon
-            self.hudData.title = title
-            self.hudData.subtitle = subtitle
-            self.hudData.progress = progress
-            self.hudData.isVisible = true
-
-            // Position at top-center of screen (just below menu bar like Dynamic Island)
-            if let screen = NSScreen.main {
-                let screenRect = screen.visibleFrame
-                let x = screenRect.origin.x + (screenRect.width - 220) / 2
-                let y = screenRect.origin.y + screenRect.height - 90
-                panel.setFrameOrigin(NSPoint(x: x, y: y))
-            }
-
-            panel.orderFrontRegardless()
-
-            self.dismissTimer?.invalidate()
-            self.dismissTimer = Timer.scheduledTimer(withTimeInterval: 1.4, repeats: false) { [weak self] _ in
-                DispatchQueue.main.async {
-                    self?.hudData.isVisible = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        if !(self?.hudData.isVisible ?? false) {
-                            self?.hudWindow?.orderOut(nil)
-                        }
-                    }
-                }
-            }
-        }
+        panel.setFrameOrigin(NSPoint(
+            x: area.midX - panelSize.width / 2,
+            y: area.maxY - panelSize.height - 16
+        ))
     }
 }
 
-class HUDData: ObservableObject {
+final class HUDData: ObservableObject {
     @Published var icon: String = "speaker.wave.3.fill"
     @Published var title: String = "Volume"
-    @Published var subtitle: String? = nil
-    @Published var progress: Float? = 0.5
+    @Published var subtitle: String?
+    @Published var progress: Float?
     @Published var isVisible: Bool = false
 }
 
@@ -85,20 +95,21 @@ struct HUDView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(Color.primary.opacity(0.12))
+                    .fill(Color.primary.opacity(0.10))
                     .frame(width: 38, height: 38)
                 Image(systemName: data.icon)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.accentColor)
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack {
+                HStack(spacing: 6) {
                     Text(data.title)
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    Spacer()
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
                     if let progress = data.progress {
-                        Text("\(Int(progress * 100))%")
+                        Text("\(Int((progress * 100).rounded()))%")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
@@ -109,10 +120,9 @@ struct HUDView: View {
                         ZStack(alignment: .leading) {
                             Capsule()
                                 .fill(Color.primary.opacity(0.12))
-                                .frame(height: 6)
                             Capsule()
                                 .fill(LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing))
-                                .frame(width: geo.size.width * CGFloat(max(0, min(1, progress))), height: 6)
+                                .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
                         }
                     }
                     .frame(height: 6)
@@ -132,11 +142,13 @@ struct HUDView: View {
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                        .stroke(Color.primary.opacity(0.12), lineWidth: 1)
                 )
+                .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
         )
-        .scaleEffect(data.isVisible ? 1.0 : 0.85)
+        .scaleEffect(data.isVisible ? 1.0 : 0.86)
         .opacity(data.isVisible ? 1.0 : 0.0)
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: data.isVisible)
+        .animation(.spring(response: 0.28, dampingFraction: 0.74), value: data.isVisible)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

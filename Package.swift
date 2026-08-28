@@ -11,8 +11,12 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "MacGestureControl",
-            path: "Sources/MacGestureControl",
-            resources: [.process("Resources")]
+            path: "Sources/MacGestureControl"
+        ),
+        .testTarget(
+            name: "MacGestureControlTests",
+            dependencies: ["MacGestureControl"],
+            path: "Tests/MacGestureControlTests"
         )
     ]
 )

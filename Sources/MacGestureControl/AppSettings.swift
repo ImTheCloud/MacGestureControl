@@ -1,272 +1,142 @@
 // AppSettings.swift
 import Foundation
-import SwiftUI
 import Combine
 
-enum MediaAction {
-    case playPause
-    case next
-    case previous
-}
+/// Immutable copy of everything the realtime multitouch thread needs.
+///
+/// The engine runs on a high-priority HID callback thread while `AppSettings`
+/// is an `ObservableObject` owned by the main thread, so the engine never
+/// touches the published properties directly — it grabs one of these per frame.
+struct SettingsSnapshot {
+    var isEnabled: Bool = true
+    var invertDirection: Bool = false
+    /// 0 = deliberate, long swipes. 1 = hair trigger. 0.5 is the default.
+    var sensitivity: Double = 0.5
+    var actions: [GestureSlot: GestureAction] = [:]
 
-enum GestureAction: String, CaseIterable, Identifiable, Codable {
-    case volume = "volume"
-    case brightness = "brightness"
-    case mediaPlayPause = "media_play_pause"
-    case mediaNext = "media_next"
-    case mediaPrevious = "media_previous"
-    case toggleMute = "toggle_mute"
-    case middleClick = "middle_click"
-    case snapLeft = "snap_left"
-    case snapRight = "snap_right"
-    case maximizeWindow = "maximize_window"
-    case centerWindow = "center_window"
-    case minimizeWindow = "minimize_window"
-    case missionControl = "mission_control"
-    case showDesktop = "show_desktop"
-    case lockScreen = "lock_screen"
-    case sleepDisplay = "sleep_display"
-    case screenshot = "screenshot"
-    case launchApp = "launch_app"
-    case none = "none"
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .volume: return "System Volume"
-        case .brightness: return "Screen Brightness"
-        case .mediaPlayPause: return "Play / Pause (Spotify, Music)"
-        case .mediaNext: return "Next Track"
-        case .mediaPrevious: return "Previous Track"
-        case .toggleMute: return "Mute / Unmute Audio"
-        case .middleClick: return "Middle Click (Open link / Close tab)"
-        case .snapLeft: return "Snap Left Half"
-        case .snapRight: return "Snap Right Half"
-        case .maximizeWindow: return "Maximize Window"
-        case .centerWindow: return "Center Window"
-        case .minimizeWindow: return "Minimize Window"
-        case .missionControl: return "Open Mission Control"
-        case .showDesktop: return "Show Desktop"
-        case .lockScreen: return "Lock Screen"
-        case .sleepDisplay: return "Sleep Display"
-        case .screenshot: return "Take Screenshot (Cmd+Shift+4)"
-        case .launchApp: return "Launch Application"
-        case .none: return "Disabled"
-        }
+    func action(for slot: GestureSlot) -> GestureAction {
+        actions[slot] ?? .none
     }
 
-    var shortTitle: String {
-        switch self {
-        case .volume: return "Volume"
-        case .brightness: return "Brightness"
-        case .mediaPlayPause: return "Play / Pause"
-        case .mediaNext: return "Next Track"
-        case .mediaPrevious: return "Prev Track"
-        case .toggleMute: return "Mute"
-        case .middleClick: return "Middle Click"
-        case .snapLeft: return "Snap Left"
-        case .snapRight: return "Snap Right"
-        case .maximizeWindow: return "Maximize"
-        case .centerWindow: return "Center"
-        case .minimizeWindow: return "Minimize"
-        case .missionControl: return "Mission Control"
-        case .showDesktop: return "Show Desktop"
-        case .lockScreen: return "Lock Screen"
-        case .sleepDisplay: return "Sleep Display"
-        case .screenshot: return "Screenshot"
-        case .launchApp: return "Launch App"
-        case .none: return "Disabled"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .volume: return "speaker.wave.3.fill"
-        case .brightness: return "sun.max.fill"
-        case .mediaPlayPause: return "playpause.fill"
-        case .mediaNext: return "forward.fill"
-        case .mediaPrevious: return "backward.fill"
-        case .toggleMute: return "speaker.slash.fill"
-        case .middleClick: return "computermouse.fill"
-        case .snapLeft: return "rectangle.lefthalf.filled"
-        case .snapRight: return "rectangle.righthalf.filled"
-        case .maximizeWindow: return "arrow.up.left.and.arrow.down.right"
-        case .centerWindow: return "rectangle.center.inset.filled"
-        case .minimizeWindow: return "minus.rectangle"
-        case .missionControl: return "rectangle.stack.fill"
-        case .showDesktop: return "menubar.rectangle"
-        case .lockScreen: return "lock.fill"
-        case .sleepDisplay: return "display"
-        case .screenshot: return "camera.fill"
-        case .launchApp: return "arrow.up.forward.app.fill"
-        case .none: return "slash.circle"
-        }
-    }
-
-    var isContinuous: Bool {
-        return self == .volume || self == .brightness
+    /// Multiplier applied to every movement threshold. Higher sensitivity means
+    /// a shorter swipe is needed, so the multiplier shrinks.
+    var thresholdScale: Float {
+        Float(1.45 - 0.9 * min(max(sensitivity, 0), 1))
     }
 }
 
-class AppSettings: ObservableObject {
+final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
-    // MARK: - Global Switches
-    @Published var isEnabled: Bool {
-        didSet { UserDefaults.standard.set(isEnabled, forKey: "app_isEnabled_v5") }
-    }
-    @Published var hapticsEnabled: Bool {
-        didSet { UserDefaults.standard.set(hapticsEnabled, forKey: "app_hapticsEnabled_v5") }
-    }
-    @Published var showHUD: Bool {
-        didSet { UserDefaults.standard.set(showHUD, forKey: "app_showHUD_v5") }
-    }
-    @Published var menuBarIcon: String {
-        didSet { UserDefaults.standard.set(menuBarIcon, forKey: "app_menuBarIcon_v5") }
-    }
-    @Published var sensitivity: Double {
-        didSet { UserDefaults.standard.set(sensitivity, forKey: "app_sensitivity_v5") }
-    }
-    @Published var targetBundleId: String {
-        didSet { UserDefaults.standard.set(targetBundleId, forKey: "app_targetBundleId_v5") }
+    private let defaults = UserDefaults.standard
+
+    // MARK: - Global switches
+    @Published var isEnabled: Bool { didSet { defaults.set(isEnabled, forKey: Keys.isEnabled); refreshSnapshot() } }
+    @Published var hapticsEnabled: Bool { didSet { defaults.set(hapticsEnabled, forKey: Keys.haptics) } }
+    @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Keys.showHUD) } }
+    @Published var invertDirection: Bool { didSet { defaults.set(invertDirection, forKey: Keys.invertDirection); refreshSnapshot() } }
+    @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Keys.sensitivity); refreshSnapshot() } }
+    @Published var menuBarIcon: String { didSet { defaults.set(menuBarIcon, forKey: Keys.menuBarIcon) } }
+    @Published var launchTargetBundleId: String { didSet { defaults.set(launchTargetBundleId, forKey: Keys.launchTarget) } }
+
+    // MARK: - Gesture bindings
+    @Published private(set) var actions: [GestureSlot: GestureAction]
+
+    // MARK: - Realtime snapshot
+    private let snapshotLock = NSLock()
+    private var storedSnapshot = SettingsSnapshot()
+
+    /// Thread-safe view of the settings, safe to call from the multitouch thread.
+    var snapshot: SettingsSnapshot {
+        snapshotLock.lock()
+        defer { snapshotLock.unlock() }
+        return storedSnapshot
     }
 
-    // MARK: - 4-Finger Gestures (Defaults: Vertical = Volume, Tap = Play/Pause)
-    @Published var fourFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerVerticalAction.rawValue, forKey: "fourFingerVerticalAction_v5") }
-    }
-    @Published var fourFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerHorizontalAction.rawValue, forKey: "fourFingerHorizontalAction_v5") }
-    }
-    @Published var fourFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerTapAction.rawValue, forKey: "fourFingerTapAction_v5") }
-    }
-    @Published var fourFingerPinchInAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerPinchInAction.rawValue, forKey: "fourFingerPinchInAction_v5") }
-    }
-    @Published var fourFingerPinchOutAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerPinchOutAction.rawValue, forKey: "fourFingerPinchOutAction_v5") }
+    private enum Keys {
+        static let isEnabled = "app_isEnabled_v6"
+        static let haptics = "app_haptics_v6"
+        static let showHUD = "app_showHUD_v6"
+        static let invertDirection = "app_invertDirection_v6"
+        static let sensitivity = "app_sensitivity_v6"
+        static let menuBarIcon = "app_menuBarIcon_v6"
+        static let launchTarget = "app_launchTarget_v6"
     }
 
-    // MARK: - 3-Finger Gestures (Default: Tap = Screenshot)
-    @Published var threeFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerVerticalAction.rawValue, forKey: "threeFingerVerticalAction_v5") }
-    }
-    @Published var threeFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerHorizontalAction.rawValue, forKey: "threeFingerHorizontalAction_v5") }
-    }
-    @Published var threeFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerTapAction.rawValue, forKey: "threeFingerTapAction_v5") }
-    }
-    @Published var threeFingerPinchInAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerPinchInAction.rawValue, forKey: "threeFingerPinchInAction_v5") }
-    }
-    @Published var threeFingerPinchOutAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerPinchOutAction.rawValue, forKey: "threeFingerPinchOutAction_v5") }
-    }
+    /// Icons offered for the menu bar.
+    static let menuBarIconChoices = [
+        "hand.draw.fill", "hand.tap.fill", "hand.raised.fill",
+        "rectangle.and.hand.point.up.left.filled", "cursorarrow.motionlines", "wand.and.rays"
+    ]
 
-    // MARK: - 2-Finger Gestures (Default: All Disabled)
-    @Published var twoFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerVerticalAction.rawValue, forKey: "twoFingerVerticalAction_v5") }
-    }
-    @Published var twoFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerHorizontalAction.rawValue, forKey: "twoFingerHorizontalAction_v5") }
-    }
-    @Published var twoFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerTapAction.rawValue, forKey: "twoFingerTapAction_v5") }
-    }
-
-    // MARK: - Corner Taps (Default: All Disabled)
-    @Published var cornerTopLeftAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerTopLeftAction.rawValue, forKey: "cornerTopLeftAction_v5") }
-    }
-    @Published var cornerTopRightAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerTopRightAction.rawValue, forKey: "cornerTopRightAction_v5") }
-    }
-    @Published var cornerBottomLeftAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerBottomLeftAction.rawValue, forKey: "cornerBottomLeftAction_v5") }
-    }
-    @Published var cornerBottomRightAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerBottomRightAction.rawValue, forKey: "cornerBottomRightAction_v5") }
-    }
+    static let defaultMenuBarIcon = "hand.draw.fill"
 
     private init() {
-        self.isEnabled = UserDefaults.standard.object(forKey: "app_isEnabled_v5") as? Bool ?? true
-        self.hapticsEnabled = UserDefaults.standard.object(forKey: "app_hapticsEnabled_v5") as? Bool ?? true
-        self.showHUD = UserDefaults.standard.object(forKey: "app_showHUD_v5") as? Bool ?? true
-        self.menuBarIcon = UserDefaults.standard.string(forKey: "app_menuBarIcon_v5") ?? "hand.draw.fill"
-        self.sensitivity = UserDefaults.standard.object(forKey: "app_sensitivity_v5") as? Double ?? 0.05
-        self.targetBundleId = UserDefaults.standard.string(forKey: "app_targetBundleId_v5") ?? "com.apple.Notes"
+        isEnabled = defaults.object(forKey: Keys.isEnabled) as? Bool ?? true
+        hapticsEnabled = defaults.object(forKey: Keys.haptics) as? Bool ?? true
+        showHUD = defaults.object(forKey: Keys.showHUD) as? Bool ?? true
+        invertDirection = defaults.object(forKey: Keys.invertDirection) as? Bool ?? false
+        sensitivity = defaults.object(forKey: Keys.sensitivity) as? Double ?? 0.5
+        menuBarIcon = defaults.string(forKey: Keys.menuBarIcon) ?? AppSettings.defaultMenuBarIcon
+        launchTargetBundleId = defaults.string(forKey: Keys.launchTarget)
+            ?? defaults.string(forKey: "app_targetBundleId_v5")
+            ?? "com.apple.Notes"
 
-        // 4-Finger: Vertical = Volume, Tap = Play/Pause Media
-        let fv = UserDefaults.standard.string(forKey: "fourFingerVerticalAction_v5") ?? GestureAction.volume.rawValue
-        self.fourFingerVerticalAction = GestureAction(rawValue: fv) ?? .volume
-        let fh = UserDefaults.standard.string(forKey: "fourFingerHorizontalAction_v5") ?? GestureAction.none.rawValue
-        self.fourFingerHorizontalAction = GestureAction(rawValue: fh) ?? .none
-        let ft = UserDefaults.standard.string(forKey: "fourFingerTapAction_v5") ?? GestureAction.mediaPlayPause.rawValue
-        self.fourFingerTapAction = GestureAction(rawValue: ft) ?? .mediaPlayPause
-        let fpi = UserDefaults.standard.string(forKey: "fourFingerPinchInAction_v5") ?? GestureAction.none.rawValue
-        self.fourFingerPinchInAction = GestureAction(rawValue: fpi) ?? .none
-        let fpo = UserDefaults.standard.string(forKey: "fourFingerPinchOutAction_v5") ?? GestureAction.none.rawValue
-        self.fourFingerPinchOutAction = GestureAction(rawValue: fpo) ?? .none
+        var loaded: [GestureSlot: GestureAction] = [:]
+        for slot in GestureSlot.allCases {
+            // Prefer the current key, fall back to the pre-refactor key so an
+            // existing install keeps its bindings, then to the shipped default.
+            let raw = defaults.string(forKey: slot.storageKey) ?? defaults.string(forKey: slot.legacyStorageKey)
+            loaded[slot] = raw.flatMap(GestureAction.init(rawValue:)) ?? slot.defaultAction
+        }
+        actions = loaded
 
-        // 3-Finger: Tap = Screenshot (active by default), others disabled
-        let tv = UserDefaults.standard.string(forKey: "threeFingerVerticalAction_v5") ?? GestureAction.none.rawValue
-        self.threeFingerVerticalAction = GestureAction(rawValue: tv) ?? .none
-        let th = UserDefaults.standard.string(forKey: "threeFingerHorizontalAction_v5") ?? GestureAction.none.rawValue
-        self.threeFingerHorizontalAction = GestureAction(rawValue: th) ?? .none
-        let tt = UserDefaults.standard.string(forKey: "threeFingerTapAction_v5") ?? GestureAction.screenshot.rawValue
-        self.threeFingerTapAction = GestureAction(rawValue: tt) ?? .screenshot
-        let tpi = UserDefaults.standard.string(forKey: "threeFingerPinchInAction_v5") ?? GestureAction.none.rawValue
-        self.threeFingerPinchInAction = GestureAction(rawValue: tpi) ?? .none
-        let tpo = UserDefaults.standard.string(forKey: "threeFingerPinchOutAction_v5") ?? GestureAction.none.rawValue
-        self.threeFingerPinchOutAction = GestureAction(rawValue: tpo) ?? .none
-
-        // 2-Finger: All disabled by default
-        let twoV = UserDefaults.standard.string(forKey: "twoFingerVerticalAction_v5") ?? GestureAction.none.rawValue
-        self.twoFingerVerticalAction = GestureAction(rawValue: twoV) ?? .none
-        let twoH = UserDefaults.standard.string(forKey: "twoFingerHorizontalAction_v5") ?? GestureAction.none.rawValue
-        self.twoFingerHorizontalAction = GestureAction(rawValue: twoH) ?? .none
-        let twoT = UserDefaults.standard.string(forKey: "twoFingerTapAction_v5") ?? GestureAction.none.rawValue
-        self.twoFingerTapAction = GestureAction(rawValue: twoT) ?? .none
-
-        // Corner Taps: All disabled by default
-        let ctl = UserDefaults.standard.string(forKey: "cornerTopLeftAction_v5") ?? GestureAction.none.rawValue
-        self.cornerTopLeftAction = GestureAction(rawValue: ctl) ?? .none
-        let ctr = UserDefaults.standard.string(forKey: "cornerTopRightAction_v5") ?? GestureAction.none.rawValue
-        self.cornerTopRightAction = GestureAction(rawValue: ctr) ?? .none
-        let cbl = UserDefaults.standard.string(forKey: "cornerBottomLeftAction_v5") ?? GestureAction.none.rawValue
-        self.cornerBottomLeftAction = GestureAction(rawValue: cbl) ?? .none
-        let cbr = UserDefaults.standard.string(forKey: "cornerBottomRightAction_v5") ?? GestureAction.none.rawValue
-        self.cornerBottomRightAction = GestureAction(rawValue: cbr) ?? .none
+        refreshSnapshot()
     }
 
+    // MARK: - Binding access
+    func action(for slot: GestureSlot) -> GestureAction {
+        actions[slot] ?? .none
+    }
+
+    func setAction(_ action: GestureAction, for slot: GestureSlot) {
+        guard actions[slot] != action else { return }
+        actions[slot] = action
+        defaults.set(action.rawValue, forKey: slot.storageKey)
+        refreshSnapshot()
+    }
+
+    /// Slots currently bound to something, in declaration order.
+    var assignedSlots: [GestureSlot] {
+        GestureSlot.allCases.filter { action(for: $0) != .none }
+    }
+
+    var usesLaunchApp: Bool {
+        actions.values.contains(.launchApp)
+    }
+
+    // MARK: - Reset
     func resetToDefaults() {
-        fourFingerVerticalAction = .volume
-        fourFingerHorizontalAction = .none
-        fourFingerTapAction = .mediaPlayPause
-        fourFingerPinchInAction = .none
-        fourFingerPinchOutAction = .none
-
-        threeFingerVerticalAction = .none
-        threeFingerHorizontalAction = .none
-        threeFingerTapAction = .screenshot
-        threeFingerPinchInAction = .none
-        threeFingerPinchOutAction = .none
-
-        twoFingerVerticalAction = .none
-        twoFingerHorizontalAction = .none
-        twoFingerTapAction = .none
-
-        cornerTopLeftAction = .none
-        cornerTopRightAction = .none
-        cornerBottomLeftAction = .none
-        cornerBottomRightAction = .none
-
-        sensitivity = 0.05
+        for slot in GestureSlot.allCases {
+            setAction(slot.defaultAction, for: slot)
+        }
+        sensitivity = 0.5
+        invertDirection = false
         hapticsEnabled = true
         showHUD = true
         isEnabled = true
+        menuBarIcon = AppSettings.defaultMenuBarIcon
+    }
+
+    private func refreshSnapshot() {
+        let fresh = SettingsSnapshot(
+            isEnabled: isEnabled,
+            invertDirection: invertDirection,
+            sensitivity: sensitivity,
+            actions: actions
+        )
+        snapshotLock.lock()
+        storedSnapshot = fresh
+        snapshotLock.unlock()
     }
 }

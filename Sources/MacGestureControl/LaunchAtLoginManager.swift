@@ -3,83 +3,85 @@ import Foundation
 import ServiceManagement
 import AppKit
 
-class LaunchAtLoginManager: ObservableObject {
+/// Registers the app to start at login.
+///
+/// `SMAppService` is the supported route and works when the app runs from a
+/// bundle. A plain `swift run` binary is not a bundle, so a LaunchAgent plist is
+/// written instead.
+final class LaunchAtLoginManager: ObservableObject {
     static let shared = LaunchAtLoginManager()
 
-    private let launchAgentIdentifier = "com.imthecloud.MacGestureControl"
-    private var launchAgentURL: URL {
-        let libraryDir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
-        let launchAgentsDir = libraryDir.appendingPathComponent("LaunchAgents")
-        return launchAgentsDir.appendingPathComponent("\(launchAgentIdentifier).plist")
+    @Published private(set) var isEnabled: Bool = false
+
+    private let identifier = "com.imthecloud.MacGestureControl"
+
+    /// True when running from a real .app bundle, where SMAppService applies.
+    private var isBundled: Bool {
+        Bundle.main.bundleIdentifier != nil && Bundle.main.bundlePath.hasSuffix(".app")
     }
 
-    @Published var isEnabled: Bool = false
+    private var launchAgentURL: URL {
+        FileManager.default
+            .urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("LaunchAgents")
+            .appendingPathComponent("\(identifier).plist")
+    }
 
     private init() {
-        checkStatus()
+        refresh()
     }
 
-    func checkStatus() {
-        if #available(macOS 13.0, *) {
-            if SMAppService.mainApp.status == .enabled {
-                self.isEnabled = true
-                return
-            }
+    func refresh() {
+        if isBundled, SMAppService.mainApp.status == .enabled {
+            isEnabled = true
+            return
         }
-        // Fallback check LaunchAgents directory
-        self.isEnabled = FileManager.default.fileExists(atPath: launchAgentURL.path)
+        isEnabled = FileManager.default.fileExists(atPath: launchAgentURL.path)
     }
 
     func setEnabled(_ enabled: Bool) {
-        self.isEnabled = enabled
-
-        // 1. Try modern SMAppService (if running inside a proper .app bundle)
-        if #available(macOS 13.0, *) {
+        if isBundled {
             do {
                 if enabled {
-                    if SMAppService.mainApp.status != .enabled {
-                        try SMAppService.mainApp.register()
-                        return
-                    }
-                } else {
-                    if SMAppService.mainApp.status == .enabled {
-                        try SMAppService.mainApp.unregister()
-                    }
+                    try SMAppService.mainApp.register()
+                } else if SMAppService.mainApp.status == .enabled {
+                    try SMAppService.mainApp.unregister()
                 }
+                refresh()
+                return
             } catch {
-                NSLog("SMAppService registration note: \(error.localizedDescription) - falling back to LaunchAgent")
+                NSLog("[LaunchAtLogin] SMAppService failed (\(error.localizedDescription)); using LaunchAgent")
             }
         }
 
-        // 2. Fallback: Manage LaunchAgent plist in ~/Library/LaunchAgents/
-        let fileManager = FileManager.default
-        let launchAgentsDir = launchAgentURL.deletingLastPathComponent()
+        enabled ? writeLaunchAgent() : removeLaunchAgent()
+        refresh()
+    }
 
-        if enabled {
-            do {
-                try fileManager.createDirectory(at: launchAgentsDir, withIntermediateDirectories: true, attributes: nil)
-                let executablePath = Bundle.main.executablePath ?? CommandLine.arguments[0]
-                let absolutePath = (executablePath as NSString).expandingTildeInPath
+    private func writeLaunchAgent() {
+        let executable = Bundle.main.executablePath ?? CommandLine.arguments[0]
+        let plist: [String: Any] = [
+            "Label": identifier,
+            "ProgramArguments": [(executable as NSString).expandingTildeInPath],
+            "RunAtLoad": true,
+            "KeepAlive": false,
+            "ProcessType": "Interactive"
+        ]
 
-                let plistContent: [String: Any] = [
-                    "Label": launchAgentIdentifier,
-                    "ProgramArguments": [absolutePath],
-                    "RunAtLoad": true,
-                    "KeepAlive": false,
-                    "ProcessType": "Interactive"
-                ]
-
-                let data = try PropertyListSerialization.data(fromPropertyList: plistContent, format: .xml, options: 0)
-                try data.write(to: launchAgentURL, options: .atomic)
-                NSLog("LaunchAgent created at: \(launchAgentURL.path)")
-            } catch {
-                NSLog("Failed to write LaunchAgent: \(error.localizedDescription)")
-            }
-        } else {
-            if fileManager.fileExists(atPath: launchAgentURL.path) {
-                try? fileManager.removeItem(at: launchAgentURL)
-                NSLog("LaunchAgent removed")
-            }
+        do {
+            try FileManager.default.createDirectory(
+                at: launchAgentURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+            try data.write(to: launchAgentURL, options: .atomic)
+        } catch {
+            NSLog("[LaunchAtLogin] Failed to write LaunchAgent: \(error.localizedDescription)")
         }
+    }
+
+    private func removeLaunchAgent() {
+        guard FileManager.default.fileExists(atPath: launchAgentURL.path) else { return }
+        try? FileManager.default.removeItem(at: launchAgentURL)
     }
 }
