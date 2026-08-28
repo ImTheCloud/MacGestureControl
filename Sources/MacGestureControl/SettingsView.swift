@@ -153,7 +153,7 @@ struct SettingsView: View {
                         id: "fourFingerVertical",
                         icon: "speaker.wave.3.fill",
                         title: "4-Finger Swipe",
-                        subtitle: "Slide up / down to change volume",
+                        subtitle: "System Volume control",
                         binding: $settings.fourFingerVerticalAction
                     )
                 }
@@ -164,7 +164,7 @@ struct SettingsView: View {
                         id: "fourFingerTap",
                         icon: "playpause.fill",
                         title: "4-Finger Tap",
-                        subtitle: "Tap once to Play or Pause music",
+                        subtitle: "Play / Pause (Spotify, Music)",
                         binding: $settings.fourFingerTapAction
                     )
                 }
@@ -175,7 +175,7 @@ struct SettingsView: View {
                         id: "threeFingerTap",
                         icon: "camera.fill",
                         title: "3-Finger Tap",
-                        subtitle: "Tap once to take a Screenshot",
+                        subtitle: "Instant Screenshot (Cmd+Shift+4)",
                         binding: $settings.threeFingerTapAction
                     )
                 }
@@ -185,20 +185,20 @@ struct SettingsView: View {
                     gestureRow(id: "threeFingerHorizontal", icon: "arrow.left.and.right", title: "3-Finger Swipe", subtitle: "Slide left / right", binding: $settings.threeFingerHorizontalAction)
                 }
                 if settings.twoFingerTapAction != .none {
-                    gestureRow(id: "twoFingerTap", icon: "hand.tap.fill", title: "2-Finger Tap", subtitle: "Tap with 2 fingers", binding: $settings.twoFingerTapAction)
+                    gestureRow(id: "twoFingerTap", icon: "hand.tap.fill", title: "2-Finger Tap", subtitle: "Secondary tap action", binding: $settings.twoFingerTapAction)
                 }
                 if settings.cornerTopLeftAction != .none {
-                    gestureRow(id: "cornerTopLeft", icon: "square.topthird.inset.filled", title: "Top-Left Corner", subtitle: "Tap top-left corner", binding: $settings.cornerTopLeftAction)
+                    gestureRow(id: "cornerTopLeft", icon: "square.topthird.inset.filled", title: "Top-Left Corner", subtitle: "Corner trigger", binding: $settings.cornerTopLeftAction)
                 }
             }
 
             Divider().opacity(0.4)
 
-            // Essential Settings Toggles
+            // Essential Settings Toggles (Standard macOS Terminology)
             VStack(spacing: 6) {
                 toggleRow(
-                    icon: "power.circle.fill",
-                    title: "Start automatically with Mac",
+                    icon: "bolt.fill",
+                    title: "Launch at Login",
                     isOn: Binding(
                         get: { launchAtLogin.isEnabled },
                         set: { launchAtLogin.setEnabled($0) }
@@ -206,14 +206,14 @@ struct SettingsView: View {
                 )
 
                 toggleRow(
-                    icon: "hand.tap.fill",
-                    title: "Trackpad physical click sensation",
+                    icon: "iphone.radiowaves.left.and.right",
+                    title: "Haptic Feedback (Taptic Engine)",
                     isOn: $settings.hapticsEnabled
                 )
 
                 toggleRow(
                     icon: "macwindow.on.rectangle",
-                    title: "Show visual bubble on screen",
+                    title: "On-Screen HUD Overlay",
                     isOn: $settings.showHUD
                 )
             }
