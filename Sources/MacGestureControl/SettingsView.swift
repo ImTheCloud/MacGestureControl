@@ -15,16 +15,10 @@ struct SettingsView: View {
             
             Divider().opacity(0.6)
 
-            // MARK: - Quick Presets Bar (Full Width, Zero Scrolling)
-            presetsBar
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 6)
-
-            // MARK: - Category Navigation Tabs (Full Width, Never Truncated)
+            // MARK: - Navigation Tabs (5 Clean, Distinct Tabs)
             navigationPillBar
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
 
             Divider().opacity(0.4)
 
@@ -37,17 +31,19 @@ struct SettingsView: View {
                     case 1:
                         threeFingerSection
                     case 2:
-                        twoFingerAndCornersSection
+                        twoFingerSection
                     case 3:
+                        cornersSection
+                    case 4:
                         preferencesSection
                     default:
                         EmptyView()
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
             }
-            .frame(height: 350)
+            .frame(height: 360)
 
             Divider().opacity(0.6)
 
@@ -61,7 +57,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Header View (No PRO badge)
+    // MARK: - Header View
     private var headerView: some View {
         HStack(spacing: 12) {
             ZStack {
@@ -114,45 +110,14 @@ struct SettingsView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - Presets Bar (3 Equal Width Columns)
-    private var presetsBar: some View {
-        HStack(spacing: 8) {
-            ForEach(PresetType.allCases) { preset in
-                Button(action: {
-                    settings.applyPreset(preset)
-                    HapticManager.shared.triggerClick()
-                    HUDManager.shared.show(icon: preset.icon, title: "Preset Applied", subtitle: preset.rawValue)
-                }) {
-                    HStack(spacing: 5) {
-                        Image(systemName: preset.icon)
-                            .font(.system(size: 10, weight: .bold))
-                        Text(preset.rawValue)
-                            .font(.system(size: 11, weight: .medium))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule()
-                            .fill(Color.primary.opacity(0.05))
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.primary.opacity(0.12), lineWidth: 0.8)
-                            )
-                    )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: - Navigation Tabs Bar (4 Equal Width Responsive Buttons)
+    // MARK: - Navigation Tabs Bar (5 Equal Responsive Buttons)
     private var navigationPillBar: some View {
-        HStack(spacing: 6) {
-            navPill(title: "4 Fingers", icon: "hand.raised.fill", index: 0)
-            navPill(title: "3 Fingers", icon: "hand.point.up.left.and.right", index: 1)
-            navPill(title: "2 & Corners", icon: "square.grid.2x2.fill", index: 2)
-            navPill(title: "Settings", icon: "gearshape.fill", index: 3)
+        HStack(spacing: 5) {
+            navPill(title: "4-Finger", icon: "hand.raised.fill", index: 0)
+            navPill(title: "3-Finger", icon: "hand.point.up.left.and.right", index: 1)
+            navPill(title: "2-Finger", icon: "hand.point.up.2.fill", index: 2)
+            navPill(title: "Corners", icon: "square.grid.2x2.fill", index: 3)
+            navPill(title: "Settings", icon: "gearshape.fill", index: 4)
         }
     }
 
@@ -161,15 +126,14 @@ struct SettingsView: View {
             selectedTab = index
             HapticManager.shared.trigger()
         }) {
-            HStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 11, weight: selectedTab == index ? .bold : .medium))
+                    .font(.system(size: 10, weight: selectedTab == index ? .bold : .medium))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                    .minimumScaleFactor(0.8)
             }
-            .padding(.horizontal, 4)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity)
             .background(
@@ -192,7 +156,7 @@ struct SettingsView: View {
                 id: "fourFingerVertical",
                 icon: "arrow.up.and.down",
                 title: "4-Finger Vertical Swipe",
-                subtitle: "Default: Adjust System Volume",
+                subtitle: "Swipe up / down on trackpad (Default: Volume)",
                 binding: $settings.fourFingerVerticalAction
             )
 
@@ -200,7 +164,7 @@ struct SettingsView: View {
                 id: "fourFingerTap",
                 icon: "hand.tap.fill",
                 title: "4-Finger Single Tap",
-                subtitle: "Default: Play / Pause (Spotify, Music)",
+                subtitle: "Brief tap with 4 fingers (Default: Play/Pause)",
                 binding: $settings.fourFingerTapAction
             )
 
@@ -237,7 +201,7 @@ struct SettingsView: View {
                 id: "threeFingerTap",
                 icon: "camera.fill",
                 title: "3-Finger Single Tap",
-                subtitle: "Default: Take Screenshot (Cmd+Shift+4)",
+                subtitle: "Brief tap with 3 fingers (Default: Screenshot)",
                 binding: $settings.threeFingerTapAction
             )
 
@@ -275,9 +239,15 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 2-Finger & Corners Section
-    private var twoFingerAndCornersSection: some View {
+    // MARK: - 2-Finger Section
+    private var twoFingerSection: some View {
         VStack(spacing: 8) {
+            Text("2-Finger gestures (Disabled by default to protect browser scroll)")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 2)
+
             gestureRow(
                 id: "twoFingerTap",
                 icon: "hand.tap.fill",
@@ -289,23 +259,35 @@ struct SettingsView: View {
             gestureRow(
                 id: "twoFingerVertical",
                 icon: "arrow.up.and.down",
-                title: "2-Finger Scroll Override",
-                subtitle: "Disabled by default to protect browser scroll",
+                title: "2-Finger Vertical Scroll Override",
+                subtitle: "Overrides normal macOS page scrolling",
                 binding: $settings.twoFingerVerticalAction
             )
 
-            Divider().padding(.vertical, 4)
+            gestureRow(
+                id: "twoFingerHorizontal",
+                icon: "arrow.left.and.right",
+                title: "2-Finger Horizontal Scroll Override",
+                subtitle: "Overrides normal horizontal scrolling",
+                binding: $settings.twoFingerHorizontalAction
+            )
+        }
+    }
 
-            Text("Corner Taps (Single finger tap in trackpad corners)")
+    // MARK: - Corner Taps Section
+    private var cornersSection: some View {
+        VStack(spacing: 8) {
+            Text("Single-finger taps in trackpad corners")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 2)
 
             gestureRow(
                 id: "cornerTopLeft",
                 icon: "square.topthird.inset.filled",
                 title: "Top-Left Corner Tap",
-                subtitle: "Tap in top-left corner",
+                subtitle: "Tap upper-left corner of trackpad",
                 binding: $settings.cornerTopLeftAction
             )
 
@@ -313,7 +295,7 @@ struct SettingsView: View {
                 id: "cornerTopRight",
                 icon: "square.trailingthird.inset.filled",
                 title: "Top-Right Corner Tap",
-                subtitle: "Tap in top-right corner",
+                subtitle: "Tap upper-right corner of trackpad",
                 binding: $settings.cornerTopRightAction
             )
 
@@ -321,7 +303,7 @@ struct SettingsView: View {
                 id: "cornerBottomLeft",
                 icon: "square.bottomthird.inset.filled",
                 title: "Bottom-Left Corner Tap",
-                subtitle: "Tap in bottom-left corner",
+                subtitle: "Tap lower-left corner of trackpad",
                 binding: $settings.cornerBottomLeftAction
             )
 
@@ -329,7 +311,7 @@ struct SettingsView: View {
                 id: "cornerBottomRight",
                 icon: "square.trailingthird.inset.filled",
                 title: "Bottom-Right Corner Tap",
-                subtitle: "Tap in bottom-right corner",
+                subtitle: "Tap lower-right corner of trackpad",
                 binding: $settings.cornerBottomRightAction
             )
         }
