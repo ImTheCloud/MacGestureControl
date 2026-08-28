@@ -17,7 +17,7 @@ struct SettingsView: View {
 
             Divider().opacity(0.4)
 
-            // MARK: - Unified Segmented Tab Bar
+            // MARK: - Unified Segmented Tab Bar (Consistent Text-Only Tabs)
             segmentedTabBar
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -49,7 +49,7 @@ struct SettingsView: View {
 
             Divider().opacity(0.4)
 
-            // MARK: - Footer
+            // MARK: - Footer (Consistent Icons for all items)
             footerView
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
@@ -100,14 +100,14 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Unified Segmented Tab Bar
+    // MARK: - Unified Segmented Tab Bar (Clean, Consistent Text-Only Tabs)
     private var segmentedTabBar: some View {
         HStack(spacing: 3) {
-            tabItem(title: "Active", icon: "bolt.fill", index: 0)
-            tabItem(title: "4-Finger", icon: "hand.raised.fill", index: 1)
-            tabItem(title: "3-Finger", icon: "hand.point.up.left.and.right", index: 2)
-            tabItem(title: "2-Finger", icon: "hand.point.up.2.fill", index: 3)
-            tabItem(title: "Corners", icon: "square.grid.2x2.fill", index: 4)
+            tabItem(title: "Active", index: 0)
+            tabItem(title: "4 Fingers", index: 1)
+            tabItem(title: "3 Fingers", index: 2)
+            tabItem(title: "2 Fingers", index: 3)
+            tabItem(title: "Corners", index: 4)
         }
         .padding(3)
         .background(
@@ -116,27 +116,23 @@ struct SettingsView: View {
         )
     }
 
-    private func tabItem(title: String, icon: String, index: Int) -> some View {
+    private func tabItem(title: String, index: Int) -> some View {
         Button(action: {
             withAnimation(.easeInOut(duration: 0.15)) {
                 selectedTab = index
             }
             HapticManager.shared.trigger()
         }) {
-            HStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 9, weight: selectedTab == index ? .bold : .medium))
-                Text(title)
-                    .font(.system(size: 10, weight: selectedTab == index ? .bold : .medium))
-                    .lineLimit(1)
-            }
-            .padding(.vertical, 5)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(selectedTab == index ? Color.accentColor : Color.clear)
-            )
-            .foregroundColor(selectedTab == index ? .white : .secondary)
+            Text(title)
+                .font(.system(size: 11, weight: selectedTab == index ? .semibold : .regular))
+                .lineLimit(1)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(selectedTab == index ? Color.accentColor : Color.clear)
+                )
+                .foregroundColor(selectedTab == index ? .white : .secondary)
         }
         .buttonStyle(.plain)
     }
@@ -146,7 +142,7 @@ struct SettingsView: View {
         VStack(spacing: 12) {
             // Enabled Gestures Inset Group
             VStack(spacing: 0) {
-                headerLabel("ACTIVE GESTURES")
+                headerLabel(icon: "bolt.fill", text: "ACTIVE GESTURES")
 
                 VStack(spacing: 0) {
                     if settings.fourFingerVerticalAction != .none {
@@ -199,7 +195,7 @@ struct SettingsView: View {
 
             // System Options Inset Group
             VStack(spacing: 0) {
-                headerLabel("PREFERENCES")
+                headerLabel(icon: "gearshape.fill", text: "PREFERENCES")
 
                 VStack(spacing: 0) {
                     toggleRow(
@@ -235,7 +231,7 @@ struct SettingsView: View {
     // MARK: - Tab 1: 4-Finger Section
     private var fourFingerSection: some View {
         VStack(spacing: 0) {
-            headerLabel("4-FINGER GESTURES")
+            headerLabel(icon: "hand.raised.fill", text: "4-FINGER GESTURES")
 
             VStack(spacing: 0) {
                 gestureRow(
@@ -293,7 +289,7 @@ struct SettingsView: View {
     // MARK: - Tab 2: 3-Finger Section
     private var threeFingerSection: some View {
         VStack(spacing: 0) {
-            headerLabel("3-FINGER GESTURES")
+            headerLabel(icon: "hand.point.up.left.fill", text: "3-FINGER GESTURES")
 
             VStack(spacing: 0) {
                 gestureRow(
@@ -351,7 +347,7 @@ struct SettingsView: View {
     // MARK: - Tab 3: 2-Finger Section
     private var twoFingerSection: some View {
         VStack(spacing: 0) {
-            headerLabel("2-FINGER GESTURES")
+            headerLabel(icon: "hand.tap.fill", text: "2-FINGER GESTURES")
 
             VStack(spacing: 0) {
                 gestureRow(
@@ -389,7 +385,7 @@ struct SettingsView: View {
     // MARK: - Tab 4: Corner Taps Section
     private var cornersSection: some View {
         VStack(spacing: 0) {
-            headerLabel("CORNER TAPS")
+            headerLabel(icon: "square.grid.2x2.fill", text: "CORNER TAPS")
 
             VStack(spacing: 0) {
                 gestureRow(
@@ -435,13 +431,17 @@ struct SettingsView: View {
     }
 
     // MARK: - Reusable UI Helpers
-    private func headerLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 9.5, weight: .bold, design: .rounded))
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 4)
-            .padding(.bottom, 5)
+    private func headerLabel(icon: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+            Text(text)
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+        }
+        .foregroundColor(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .padding(.bottom, 5)
     }
 
     private var rowDivider: some View {
@@ -465,7 +465,7 @@ struct SettingsView: View {
         let isAssigned = binding.wrappedValue != .none
 
         return HStack(spacing: 10) {
-            // Icon
+            // Left Icon Badge
             ZStack {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isAssigned ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
@@ -488,7 +488,7 @@ struct SettingsView: View {
 
             Spacer(minLength: 6)
 
-            // Right Action Menu Button (Consistent 118pt width)
+            // Right Action Menu Button
             Menu {
                 ForEach(GestureAction.allCases) { action in
                     Button(action: {
@@ -581,9 +581,13 @@ struct SettingsView: View {
                 HUDManager.shared.show(icon: "arrow.counterclockwise", title: "Reset to Defaults")
                 HapticManager.shared.triggerClick()
             }) {
-                Text("Reset Defaults")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                HStack(spacing: 3) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 8))
+                    Text("Reset Defaults")
+                        .font(.system(size: 10))
+                }
+                .foregroundColor(.secondary)
             }
             .buttonStyle(.plain)
 
@@ -592,9 +596,13 @@ struct SettingsView: View {
             Button(action: {
                 NSApplication.shared.terminate(nil)
             }) {
-                Text("Quit")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.red)
+                HStack(spacing: 3) {
+                    Image(systemName: "power")
+                        .font(.system(size: 8))
+                    Text("Quit")
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundColor(.red)
             }
             .buttonStyle(.plain)
         }
