@@ -118,7 +118,7 @@ struct SettingsView: View {
 
                 toggleRow(
                     icon: "tv.fill",
-                    title: "HUD Volume Popup",
+                    title: "On-Screen HUD (Volume, Media...)",
                     isOn: $settings.showHUD
                 )
             }
