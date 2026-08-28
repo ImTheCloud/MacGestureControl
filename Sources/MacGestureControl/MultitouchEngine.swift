@@ -49,6 +49,7 @@ class MultitouchEngine: ObservableObject {
     static let shared = MultitouchEngine()
 
     @Published var activeTouches: [TrackpadTouch] = []
+    @Published var lastTriggeredGestureId: String? = nil
 
     private var device: MTDeviceRef?
 
@@ -98,6 +99,17 @@ class MultitouchEngine: ObservableObject {
         MTRegisterContactFrameCallback(device, callback)
         MTDeviceStart(device, 0)
         NSLog("MultitouchEngine started successfully")
+    }
+
+    func flashTrigger(_ gestureId: String) {
+        DispatchQueue.main.async {
+            self.lastTriggeredGestureId = gestureId
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                if self.lastTriggeredGestureId == gestureId {
+                    self.lastTriggeredGestureId = nil
+                }
+            }
+        }
     }
 
     private func handleTouchFrame(touches: UnsafeMutablePointer<MTTouch>, count: Int, timestamp: Double) {
@@ -160,11 +172,12 @@ class MultitouchEngine: ObservableObject {
                     accumulatedDeltaY += deltaY
                     maxMovementDuringTouch += abs(deltaY)
 
-                    let threshold: Float = 0.032
+                    let threshold: Float = 0.030
                     if abs(accumulatedDeltaY) >= threshold {
                         let movingUp = accumulatedDeltaY > 0
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.fourFingerVerticalAction, up: movingUp)
+                            self.flashTrigger("fourFingerVertical")
                         }
                         accumulatedDeltaY = 0
                     }
@@ -184,6 +197,7 @@ class MultitouchEngine: ObservableObject {
                         let movingRight = accumulatedDeltaX > 0
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.fourFingerHorizontalAction, up: movingRight)
+                            self.flashTrigger("fourFingerHorizontal")
                         }
                         accumulatedDeltaX = 0
                     }
@@ -193,6 +207,7 @@ class MultitouchEngine: ObservableObject {
 
             // 4-Finger Pinch
             handlePinch(touches: touchingFingers,
+                        gesturePrefix: "fourFingerPinch",
                         pinchInAction: settings.fourFingerPinchInAction,
                         pinchOutAction: settings.fourFingerPinchOutAction)
         }
@@ -211,11 +226,12 @@ class MultitouchEngine: ObservableObject {
                     accumulatedDeltaY += deltaY
                     maxMovementDuringTouch += abs(deltaY)
 
-                    let threshold: Float = 0.040
+                    let threshold: Float = 0.038
                     if abs(accumulatedDeltaY) >= threshold {
                         let movingUp = accumulatedDeltaY > 0
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.threeFingerVerticalAction, up: movingUp)
+                            self.flashTrigger("threeFingerVertical")
                         }
                         accumulatedDeltaY = 0
                     }
@@ -230,11 +246,12 @@ class MultitouchEngine: ObservableObject {
                     accumulatedDeltaX += deltaX
                     maxMovementDuringTouch += abs(deltaX)
 
-                    let threshold: Float = 0.050
+                    let threshold: Float = 0.048
                     if abs(accumulatedDeltaX) >= threshold {
                         let movingRight = accumulatedDeltaX > 0
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.threeFingerHorizontalAction, up: movingRight)
+                            self.flashTrigger("threeFingerHorizontal")
                         }
                         accumulatedDeltaX = 0
                     }
@@ -244,6 +261,7 @@ class MultitouchEngine: ObservableObject {
 
             // 3-Finger Pinch
             handlePinch(touches: touchingFingers,
+                        gesturePrefix: "threeFingerPinch",
                         pinchInAction: settings.threeFingerPinchInAction,
                         pinchOutAction: settings.threeFingerPinchOutAction)
         }
@@ -269,34 +287,49 @@ class MultitouchEngine: ObservableObject {
                     if settings.fourFingerTapAction != .none {
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.fourFingerTapAction)
+                            self.flashTrigger("fourFingerTap")
                         }
                     }
                 case 3:
                     if settings.threeFingerTapAction != .none {
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.threeFingerTapAction)
+                            self.flashTrigger("threeFingerTap")
                         }
                     }
                 case 2:
                     if settings.twoFingerTapAction != .none {
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.twoFingerTapAction)
+                            self.flashTrigger("twoFingerTap")
                         }
                     }
                 case 1:
-                    // Check corner taps if single touch
+                    // Corner taps
                     if count > 0 {
                         let lastT = touches[0]
                         let x = lastT.normalized.position.x
                         let y = lastT.normalized.position.y
                         if x < 0.18 && y > 0.82 && settings.cornerTopLeftAction != .none {
-                            DispatchQueue.main.async { SystemController.shared.execute(settings.cornerTopLeftAction) }
+                            DispatchQueue.main.async {
+                                SystemController.shared.execute(settings.cornerTopLeftAction)
+                                self.flashTrigger("cornerTopLeft")
+                            }
                         } else if x > 0.82 && y > 0.82 && settings.cornerTopRightAction != .none {
-                            DispatchQueue.main.async { SystemController.shared.execute(settings.cornerTopRightAction) }
+                            DispatchQueue.main.async {
+                                SystemController.shared.execute(settings.cornerTopRightAction)
+                                self.flashTrigger("cornerTopRight")
+                            }
                         } else if x < 0.18 && y < 0.18 && settings.cornerBottomLeftAction != .none {
-                            DispatchQueue.main.async { SystemController.shared.execute(settings.cornerBottomLeftAction) }
+                            DispatchQueue.main.async {
+                                SystemController.shared.execute(settings.cornerBottomLeftAction)
+                                self.flashTrigger("cornerBottomLeft")
+                            }
                         } else if x > 0.82 && y < 0.18 && settings.cornerBottomRightAction != .none {
-                            DispatchQueue.main.async { SystemController.shared.execute(settings.cornerBottomRightAction) }
+                            DispatchQueue.main.async {
+                                SystemController.shared.execute(settings.cornerBottomRightAction)
+                                self.flashTrigger("cornerBottomRight")
+                            }
                         }
                     }
                 default:
@@ -324,7 +357,7 @@ class MultitouchEngine: ObservableObject {
         return Float(sqrt(dx * dx + dy * dy))
     }
 
-    private func handlePinch(touches: [MTTouch], pinchInAction: GestureAction, pinchOutAction: GestureAction) {
+    private func handlePinch(touches: [MTTouch], gesturePrefix: String, pinchInAction: GestureAction, pinchOutAction: GestureAction) {
         guard pinchInAction != .none || pinchOutAction != .none else { return }
         guard let currentDist = calculatePinchDistance(touches), let startDist = initialPinchDistance else { return }
 
@@ -334,11 +367,13 @@ class MultitouchEngine: ObservableObject {
         if deltaDist > threshold && pinchOutAction != .none {
             DispatchQueue.main.async {
                 SystemController.shared.execute(pinchOutAction)
+                self.flashTrigger("\(gesturePrefix)Out")
             }
             initialPinchDistance = currentDist
         } else if deltaDist < -threshold && pinchInAction != .none {
             DispatchQueue.main.async {
                 SystemController.shared.execute(pinchInAction)
+                self.flashTrigger("\(gesturePrefix)In")
             }
             initialPinchDistance = currentDist
         }

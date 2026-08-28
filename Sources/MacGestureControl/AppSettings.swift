@@ -245,4 +245,40 @@ class AppSettings: ObservableObject {
         showHUD = true
         isEnabled = true
     }
+
+    func applyPreset(_ preset: PresetType) {
+        switch preset {
+        case .essential:
+            resetToDefaults()
+        case .productivity:
+            resetToDefaults()
+            threeFingerTapAction = .middleClick
+            threeFingerHorizontalAction = .snapRight
+            threeFingerVerticalAction = .maximizeWindow
+            cornerTopLeftAction = .showDesktop
+            cornerTopRightAction = .missionControl
+        case .mediaMaster:
+            resetToDefaults()
+            threeFingerHorizontalAction = .mediaNext
+            threeFingerVerticalAction = .toggleMute
+            threeFingerTapAction = .mediaPlayPause
+        }
+    }
 }
+
+enum PresetType: String, CaseIterable, Identifiable {
+    case essential = "Essential (Default)"
+    case productivity = "Productivity & CAD"
+    case mediaMaster = "Media Master"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .essential: return "sparkles"
+        case .productivity: return "rectangle.split.2x1.fill"
+        case .mediaMaster: return "music.note"
+        }
+    }
+}
+
