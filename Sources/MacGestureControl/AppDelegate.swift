@@ -40,6 +40,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 3. Demander les permissions & installer l'event tap
         requestAccessibilityPermission()
         installEventTap()
+
+        // 4. Démarrer la détection multi-touch trackpad (3 et 4 doigts)
+        MultitouchManager.shared.start()
     }
 
     // MARK: - Popover Handling
@@ -74,12 +77,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let deltaY = event.getDoubleValueField(.scrollWheelEventDeltaAxis1)
                 let deltaX = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
 
-                // Détection Défilement Vertical (2 doigts)
-                if abs(deltaY) > 0.4 {
+                // Détection Défilement Vertical (2 doigts) si activé
+                if abs(deltaY) > 0.4 && delegate.settings.twoFingerVerticalAction != .none {
                     delegate.executeAction(delegate.settings.twoFingerVerticalAction, up: deltaY > 0)
                 }
 
-                // Détection Défilement Horizontal (2 doigts)
+                // Détection Défilement Horizontal (2 doigts) si activé
                 if abs(deltaX) > 0.4 && delegate.settings.twoFingerHorizontalAction != .none {
                     delegate.executeAction(delegate.settings.twoFingerHorizontalAction, up: deltaX > 0)
                 }

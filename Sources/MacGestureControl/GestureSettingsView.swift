@@ -3,7 +3,7 @@ import SwiftUI
 
 struct GestureSettingsView: View {
     @ObservedObject var settings = GestureSettings.shared
-    @State private var selectedTab = 0
+    @State private var selectedTab = 2
     @State private var isAccessibilityGranted: Bool = AXIsProcessTrusted()
 
     var body: some View {

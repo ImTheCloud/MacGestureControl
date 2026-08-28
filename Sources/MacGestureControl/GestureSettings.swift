@@ -32,7 +32,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .toggleMute: return "Couper / Rétablir le Son"
         case .mouseSpeed: return "Vitesse du Curseur"
         case .launchApp: return "Lancer une Application"
-        case .none: return "Aucune Action"
+        case .none: return "Désactivé"
         }
     }
 
@@ -55,63 +55,74 @@ class GestureSettings: ObservableObject {
     static let shared = GestureSettings()
 
     @Published var isEnabled: Bool {
-        didSet { UserDefaults.standard.set(isEnabled, forKey: "gesture_isEnabled") }
+        didSet { UserDefaults.standard.set(isEnabled, forKey: "gesture_isEnabled_v2") }
     }
 
     @Published var twoFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerVerticalAction.rawValue, forKey: "twoFingerVerticalAction") }
+        didSet { UserDefaults.standard.set(twoFingerVerticalAction.rawValue, forKey: "twoFingerVerticalAction_v2") }
     }
 
     @Published var twoFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerHorizontalAction.rawValue, forKey: "twoFingerHorizontalAction") }
+        didSet { UserDefaults.standard.set(twoFingerHorizontalAction.rawValue, forKey: "twoFingerHorizontalAction_v2") }
     }
 
     @Published var threeFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerHorizontalAction.rawValue, forKey: "threeFingerHorizontalAction") }
+        didSet { UserDefaults.standard.set(threeFingerHorizontalAction.rawValue, forKey: "threeFingerHorizontalAction_v2") }
     }
 
     @Published var threeFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerVerticalAction.rawValue, forKey: "threeFingerVerticalAction") }
+        didSet { UserDefaults.standard.set(threeFingerVerticalAction.rawValue, forKey: "threeFingerVerticalAction_v2") }
     }
 
     @Published var fourFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerVerticalAction.rawValue, forKey: "fourFingerVerticalAction") }
+        didSet { UserDefaults.standard.set(fourFingerVerticalAction.rawValue, forKey: "fourFingerVerticalAction_v2") }
     }
 
     @Published var fourFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerTapAction.rawValue, forKey: "fourFingerTapAction") }
+        didSet { UserDefaults.standard.set(fourFingerTapAction.rawValue, forKey: "fourFingerTapAction_v2") }
     }
 
     @Published var sensitivity: Double {
-        didSet { UserDefaults.standard.set(sensitivity, forKey: "gesture_sensitivity") }
+        didSet { UserDefaults.standard.set(sensitivity, forKey: "gesture_sensitivity_v2") }
     }
 
     @Published var targetBundleId: String {
-        didSet { UserDefaults.standard.set(targetBundleId, forKey: "gesture_targetBundleId") }
+        didSet { UserDefaults.standard.set(targetBundleId, forKey: "gesture_targetBundleId_v2") }
     }
 
     private init() {
-        self.isEnabled = UserDefaults.standard.object(forKey: "gesture_isEnabled") as? Bool ?? true
+        self.isEnabled = UserDefaults.standard.object(forKey: "gesture_isEnabled_v2") as? Bool ?? true
         
-        let twoVert = UserDefaults.standard.string(forKey: "twoFingerVerticalAction") ?? GestureAction.volume.rawValue
-        self.twoFingerVerticalAction = GestureAction(rawValue: twoVert) ?? .volume
+        // Tout désactivé par défaut (.none), sauf 4 doigts vertical -> .volume
+        let twoVert = UserDefaults.standard.string(forKey: "twoFingerVerticalAction_v2") ?? GestureAction.none.rawValue
+        self.twoFingerVerticalAction = GestureAction(rawValue: twoVert) ?? .none
 
-        let twoHoriz = UserDefaults.standard.string(forKey: "twoFingerHorizontalAction") ?? GestureAction.none.rawValue
+        let twoHoriz = UserDefaults.standard.string(forKey: "twoFingerHorizontalAction_v2") ?? GestureAction.none.rawValue
         self.twoFingerHorizontalAction = GestureAction(rawValue: twoHoriz) ?? .none
 
-        let threeHoriz = UserDefaults.standard.string(forKey: "threeFingerHorizontalAction") ?? GestureAction.mediaNext.rawValue
-        self.threeFingerHorizontalAction = GestureAction(rawValue: threeHoriz) ?? .mediaNext
+        let threeHoriz = UserDefaults.standard.string(forKey: "threeFingerHorizontalAction_v2") ?? GestureAction.none.rawValue
+        self.threeFingerHorizontalAction = GestureAction(rawValue: threeHoriz) ?? .none
 
-        let threeVert = UserDefaults.standard.string(forKey: "threeFingerVerticalAction") ?? GestureAction.toggleMute.rawValue
-        self.threeFingerVerticalAction = GestureAction(rawValue: threeVert) ?? .toggleMute
+        let threeVert = UserDefaults.standard.string(forKey: "threeFingerVerticalAction_v2") ?? GestureAction.none.rawValue
+        self.threeFingerVerticalAction = GestureAction(rawValue: threeVert) ?? .none
 
-        let fourVert = UserDefaults.standard.string(forKey: "fourFingerVerticalAction") ?? GestureAction.brightness.rawValue
-        self.fourFingerVerticalAction = GestureAction(rawValue: fourVert) ?? .brightness
+        // SEUL GESTE ACTIVÉ PAR DÉFAUT : 4 doigts vertical -> Volume
+        let fourVert = UserDefaults.standard.string(forKey: "fourFingerVerticalAction_v2") ?? GestureAction.volume.rawValue
+        self.fourFingerVerticalAction = GestureAction(rawValue: fourVert) ?? .volume
 
-        let fourTap = UserDefaults.standard.string(forKey: "fourFingerTapAction") ?? GestureAction.launchApp.rawValue
-        self.fourFingerTapAction = GestureAction(rawValue: fourTap) ?? .launchApp
+        let fourTap = UserDefaults.standard.string(forKey: "fourFingerTapAction_v2") ?? GestureAction.none.rawValue
+        self.fourFingerTapAction = GestureAction(rawValue: fourTap) ?? .none
 
-        self.sensitivity = UserDefaults.standard.object(forKey: "gesture_sensitivity") as? Double ?? 0.05
-        self.targetBundleId = UserDefaults.standard.string(forKey: "gesture_targetBundleId") ?? "com.apple.Notes"
+        self.sensitivity = UserDefaults.standard.object(forKey: "gesture_sensitivity_v2") as? Double ?? 0.05
+        self.targetBundleId = UserDefaults.standard.string(forKey: "gesture_targetBundleId_v2") ?? "com.apple.Notes"
+    }
+
+    func resetToDefaults() {
+        twoFingerVerticalAction = .none
+        twoFingerHorizontalAction = .none
+        threeFingerHorizontalAction = .none
+        threeFingerVerticalAction = .none
+        fourFingerVerticalAction = .volume
+        fourFingerTapAction = .none
     }
 }
