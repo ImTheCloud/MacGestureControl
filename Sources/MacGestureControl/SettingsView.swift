@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var engine = MultitouchEngine.shared
+    @ObservedObject var launchAtLogin = LaunchAtLoginManager.shared
     @State private var selectedTab: Int = 0
     @State private var isAccessibilityGranted: Bool = AXIsProcessTrusted()
 
@@ -370,6 +371,13 @@ struct SettingsView: View {
 
             // Toggles
             VStack(spacing: 8) {
+                Toggle("Launch at Login (Start automatically on boot)", isOn: Binding(
+                    get: { launchAtLogin.isEnabled },
+                    set: { launchAtLogin.setEnabled($0) }
+                ))
+                .toggleStyle(SwitchToggleStyle())
+                .font(.system(size: 11))
+
                 Toggle("Haptic Feedback (Taptic Engine clicks)", isOn: $settings.hapticsEnabled)
                     .toggleStyle(SwitchToggleStyle())
                     .font(.system(size: 11))

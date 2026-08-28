@@ -22,6 +22,7 @@
 - 🖥️ **Dynamic Island / Sonoma HUD**: Floating translucent on-screen feedback with progress bars for volume, brightness, mute state, and window actions.
 - ⚡ **Taptic Engine Haptic Feedback**: Subtle physical clicks felt on your trackpad as gestures trigger.
 - 📡 **Live Trackpad Touch Radar**: Real-time visual touch canvas inside the settings popover showing finger positions.
+- 🚀 **Launch at Login**: Auto-start on system boot via native `SMAppService` and LaunchAgent support.
 - 🎨 **Modern macOS Native UI**: Built with pure SwiftUI, macOS vibrancy materials, custom menu bar icons, and instant `UserDefaults` persistence.
 
 ---
