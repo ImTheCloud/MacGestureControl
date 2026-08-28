@@ -8,10 +8,10 @@ struct SettingsView: View {
     @State private var showAdvanced: Bool = false
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 11) {
             // MARK: - Header
             headerView
-                .padding(.top, 4)
+                .padding(.top, 8)
 
             Divider().opacity(0.5)
 

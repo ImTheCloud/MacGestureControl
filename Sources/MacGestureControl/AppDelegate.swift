@@ -19,9 +19,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 1. Setup SwiftUI Settings Popover
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 380, height: 380)
+        popover.contentSize = NSSize(width: 380, height: 440)
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: SettingsView())
+        popover.animates = true
+        let hostingController = NSHostingController(rootView: SettingsView())
+        popover.contentViewController = hostingController
         self.popover = popover
 
         // 2. Setup Menu Bar Item
@@ -54,6 +56,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            if let hostingView = popover.contentViewController?.view {
+                let size = hostingView.fittingSize
+                popover.contentSize = NSSize(width: 380, height: max(440, size.height))
+            }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
