@@ -62,7 +62,10 @@ class MultitouchEngine: ObservableObject {
     private var initialPinchDistance: Float?
     private var touchStartTime: Double = 0
     private var touchStartCount: Int = 0
+    private var startAvgX: Float = 0
+    private var startAvgY: Float = 0
     private var maxMovementDuringTouch: Float = 0
+    private var hasTriggeredMotionGesture: Bool = false
 
     func start() {
         guard let handle = dlopen("/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport", RTLD_NOW) else {
@@ -146,15 +149,23 @@ class MultitouchEngine: ObservableObject {
             self.activeTouches = visualTouches
         }
 
-        // --- Touch State Machine ---
+        // --- Touch Session Initiation ---
         if fingerCount > 0 {
+            let currentAvgX = touchingFingers.reduce(0.0) { $0 + $1.normalized.position.x } / Float(fingerCount)
+            let currentAvgY = touchingFingers.reduce(0.0) { $0 + $1.normalized.position.y } / Float(fingerCount)
+
             if touchStartCount == 0 {
                 touchStartTime = timestamp
                 touchStartCount = fingerCount
+                startAvgX = currentAvgX
+                startAvgY = currentAvgY
                 maxMovementDuringTouch = 0
+                hasTriggeredMotionGesture = false
                 initialPinchDistance = calculatePinchDistance(touchingFingers)
             } else {
                 touchStartCount = max(touchStartCount, fingerCount)
+                let distFromStart = sqrt(pow(currentAvgX - startAvgX, 2) + pow(currentAvgY - startAvgY, 2))
+                maxMovementDuringTouch = max(maxMovementDuringTouch, distFromStart)
             }
         }
 
@@ -170,11 +181,11 @@ class MultitouchEngine: ObservableObject {
                 if let lastY = lastAverageY {
                     let deltaY = avgY - lastY
                     accumulatedDeltaY += deltaY
-                    maxMovementDuringTouch += abs(deltaY)
 
-                    let threshold: Float = 0.030
+                    let threshold: Float = 0.028
                     if abs(accumulatedDeltaY) >= threshold {
                         let movingUp = accumulatedDeltaY > 0
+                        self.hasTriggeredMotionGesture = true
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.fourFingerVerticalAction, up: movingUp)
                             self.flashTrigger("fourFingerVertical")
@@ -190,11 +201,11 @@ class MultitouchEngine: ObservableObject {
                 if let lastX = lastAverageX {
                     let deltaX = avgX - lastX
                     accumulatedDeltaX += deltaX
-                    maxMovementDuringTouch += abs(deltaX)
 
-                    let threshold: Float = 0.045
+                    let threshold: Float = 0.040
                     if abs(accumulatedDeltaX) >= threshold {
                         let movingRight = accumulatedDeltaX > 0
+                        self.hasTriggeredMotionGesture = true
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.fourFingerHorizontalAction, up: movingRight)
                             self.flashTrigger("fourFingerHorizontal")
@@ -224,11 +235,11 @@ class MultitouchEngine: ObservableObject {
                 if let lastY = lastAverageY {
                     let deltaY = avgY - lastY
                     accumulatedDeltaY += deltaY
-                    maxMovementDuringTouch += abs(deltaY)
 
-                    let threshold: Float = 0.038
+                    let threshold: Float = 0.035
                     if abs(accumulatedDeltaY) >= threshold {
                         let movingUp = accumulatedDeltaY > 0
+                        self.hasTriggeredMotionGesture = true
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.threeFingerVerticalAction, up: movingUp)
                             self.flashTrigger("threeFingerVertical")
@@ -239,16 +250,16 @@ class MultitouchEngine: ObservableObject {
                 lastAverageY = avgY
             }
 
-            // 3-Finger Horizontal
+            // 3-Finger Horizontal (DESKTOP / TRACK SWIPE)
             if settings.threeFingerHorizontalAction != .none {
                 if let lastX = lastAverageX {
                     let deltaX = avgX - lastX
                     accumulatedDeltaX += deltaX
-                    maxMovementDuringTouch += abs(deltaX)
 
-                    let threshold: Float = 0.048
+                    let threshold: Float = 0.040
                     if abs(accumulatedDeltaX) >= threshold {
                         let movingRight = accumulatedDeltaX > 0
+                        self.hasTriggeredMotionGesture = true
                         DispatchQueue.main.async {
                             SystemController.shared.execute(settings.threeFingerHorizontalAction, up: movingRight)
                             self.flashTrigger("threeFingerHorizontal")
@@ -267,21 +278,66 @@ class MultitouchEngine: ObservableObject {
         }
 
         // ==========================================
-        // 1-FINGER CORNER TAPS
+        // 2-FINGER GESTURES
         // ==========================================
-        else if fingerCount == 1 {
-            let touch = touchingFingers[0]
-            maxMovementDuringTouch += abs(touch.normalized.velocity.x) + abs(touch.normalized.velocity.y)
+        else if fingerCount == 2 {
+            let avgY = touchingFingers.reduce(0.0) { $0 + $1.normalized.position.y } / 2.0
+            let avgX = touchingFingers.reduce(0.0) { $0 + $1.normalized.position.x } / 2.0
+
+            // 2-Finger Vertical Scroll Override
+            if settings.twoFingerVerticalAction != .none {
+                if let lastY = lastAverageY {
+                    let deltaY = avgY - lastY
+                    accumulatedDeltaY += deltaY
+
+                    let threshold: Float = 0.040
+                    if abs(accumulatedDeltaY) >= threshold {
+                        let movingUp = accumulatedDeltaY > 0
+                        self.hasTriggeredMotionGesture = true
+                        DispatchQueue.main.async {
+                            SystemController.shared.execute(settings.twoFingerVerticalAction, up: movingUp)
+                            self.flashTrigger("twoFingerVertical")
+                        }
+                        accumulatedDeltaY = 0
+                    }
+                }
+                lastAverageY = avgY
+            }
+
+            // 2-Finger Horizontal Scroll Override
+            if settings.twoFingerHorizontalAction != .none {
+                if let lastX = lastAverageX {
+                    let deltaX = avgX - lastX
+                    accumulatedDeltaX += deltaX
+
+                    let threshold: Float = 0.045
+                    if abs(accumulatedDeltaX) >= threshold {
+                        let movingRight = accumulatedDeltaX > 0
+                        self.hasTriggeredMotionGesture = true
+                        DispatchQueue.main.async {
+                            SystemController.shared.execute(settings.twoFingerHorizontalAction, up: movingRight)
+                            self.flashTrigger("twoFingerHorizontal")
+                        }
+                        accumulatedDeltaX = 0
+                    }
+                }
+                lastAverageX = avgX
+            }
         }
 
         // ==========================================
-        // FINGERS RELEASED (TAP DETECTION)
+        // FINGERS RELEASED (STRICT TAP DISAMBIGUATION)
         // ==========================================
         if fingerCount == 0 && touchStartCount > 0 {
             let duration = timestamp - touchStartTime
 
-            // Consider it a tap if duration is < 0.48s and minimal drag occurred
-            if duration < 0.48 && maxMovementDuringTouch < 0.075 {
+            // STRICT TAP RULE:
+            // 1. MUST NOT have triggered any swipe or pinch motion during this touch session
+            // 2. Duration must be brief (< 0.32s)
+            // 3. Movement across trackpad must be minimal (< 0.030 normalized distance)
+            let isValidTap = !hasTriggeredMotionGesture && duration < 0.32 && maxMovementDuringTouch < 0.030
+
+            if isValidTap {
                 switch touchStartCount {
                 case 4:
                     if settings.fourFingerTapAction != .none {
@@ -305,27 +361,27 @@ class MultitouchEngine: ObservableObject {
                         }
                     }
                 case 1:
-                    // Corner taps
+                    // 1-Finger Corner taps
                     if count > 0 {
                         let lastT = touches[0]
                         let x = lastT.normalized.position.x
                         let y = lastT.normalized.position.y
-                        if x < 0.18 && y > 0.82 && settings.cornerTopLeftAction != .none {
+                        if x < 0.16 && y > 0.84 && settings.cornerTopLeftAction != .none {
                             DispatchQueue.main.async {
                                 SystemController.shared.execute(settings.cornerTopLeftAction)
                                 self.flashTrigger("cornerTopLeft")
                             }
-                        } else if x > 0.82 && y > 0.82 && settings.cornerTopRightAction != .none {
+                        } else if x > 0.84 && y > 0.84 && settings.cornerTopRightAction != .none {
                             DispatchQueue.main.async {
                                 SystemController.shared.execute(settings.cornerTopRightAction)
                                 self.flashTrigger("cornerTopRight")
                             }
-                        } else if x < 0.18 && y < 0.18 && settings.cornerBottomLeftAction != .none {
+                        } else if x < 0.16 && y < 0.16 && settings.cornerBottomLeftAction != .none {
                             DispatchQueue.main.async {
                                 SystemController.shared.execute(settings.cornerBottomLeftAction)
                                 self.flashTrigger("cornerBottomLeft")
                             }
-                        } else if x > 0.82 && y < 0.18 && settings.cornerBottomRightAction != .none {
+                        } else if x > 0.84 && y < 0.16 && settings.cornerBottomRightAction != .none {
                             DispatchQueue.main.async {
                                 SystemController.shared.execute(settings.cornerBottomRightAction)
                                 self.flashTrigger("cornerBottomRight")
@@ -337,14 +393,17 @@ class MultitouchEngine: ObservableObject {
                 }
             }
 
-            // Reset tracking states
+            // Reset all tracking states completely
             touchStartCount = 0
+            startAvgX = 0
+            startAvgY = 0
             lastAverageY = nil
             lastAverageX = nil
             accumulatedDeltaY = 0
             accumulatedDeltaX = 0
             initialPinchDistance = nil
             maxMovementDuringTouch = 0
+            hasTriggeredMotionGesture = false
         }
     }
 
@@ -362,15 +421,17 @@ class MultitouchEngine: ObservableObject {
         guard let currentDist = calculatePinchDistance(touches), let startDist = initialPinchDistance else { return }
 
         let deltaDist = currentDist - startDist
-        let threshold: Float = 0.12
+        let threshold: Float = 0.10
 
         if deltaDist > threshold && pinchOutAction != .none {
+            self.hasTriggeredMotionGesture = true
             DispatchQueue.main.async {
                 SystemController.shared.execute(pinchOutAction)
                 self.flashTrigger("\(gesturePrefix)Out")
             }
             initialPinchDistance = currentDist
         } else if deltaDist < -threshold && pinchInAction != .none {
+            self.hasTriggeredMotionGesture = true
             DispatchQueue.main.async {
                 SystemController.shared.execute(pinchInAction)
                 self.flashTrigger("\(gesturePrefix)In")
