@@ -201,9 +201,14 @@ class SystemController {
     }
 
     func takeScreenshot() {
-        let script = "tell application \"System Events\" to keystroke \"4\" using {command down, shift down}"
-        runAppleScript(script)
-        HUDManager.shared.show(icon: "camera.fill", title: "Screenshot Tool")
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            task.arguments = ["-i", "-c"] // Interactive selection, copy to clipboard
+            try? task.run()
+        }
+        HapticManager.shared.triggerClick()
+        HUDManager.shared.show(icon: "camera.fill", title: "Screenshot", subtitle: "Select area to capture")
     }
 
     func launchApp(bundleId: String) {

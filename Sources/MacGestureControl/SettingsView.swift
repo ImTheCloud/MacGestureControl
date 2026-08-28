@@ -15,13 +15,13 @@ struct SettingsView: View {
             
             Divider().opacity(0.6)
 
-            // MARK: - Quick Presets Bar
+            // MARK: - Quick Presets Bar (Full Width, Zero Scrolling)
             presetsBar
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
                 .padding(.bottom, 6)
 
-            // MARK: - Category Navigation Pills (No overflow)
+            // MARK: - Category Navigation Tabs (Full Width, Never Truncated)
             navigationPillBar
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
@@ -47,21 +47,21 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .frame(height: 330)
+            .frame(height: 350)
 
             Divider().opacity(0.6)
 
             // MARK: - Footer
             footerView
         }
-        .frame(width: 410)
+        .frame(width: 440)
         .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
         .onAppear {
             isAccessibilityGranted = AXIsProcessTrusted()
         }
     }
 
-    // MARK: - Header View
+    // MARK: - Header View (No PRO badge)
     private var headerView: some View {
         HStack(spacing: 12) {
             ZStack {
@@ -74,7 +74,7 @@ struct SettingsView: View {
                         )
                     )
                     .frame(width: 36, height: 36)
-                    .shadow(color: Color.purple.opacity(0.4), radius: 5, x: 0, y: 2)
+                    .shadow(color: Color.purple.opacity(0.35), radius: 5, x: 0, y: 2)
 
                 Image(systemName: settings.menuBarIcon)
                     .foregroundColor(.white)
@@ -83,13 +83,13 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("MacGesture Pro")
+                    Text("MacGesture Control")
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                     
                     Text("v2.0")
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
+                        .padding(.vertical, 1)
                         .background(Capsule().fill(Color.primary.opacity(0.08)))
                         .foregroundColor(.secondary)
                 }
@@ -114,46 +114,45 @@ struct SettingsView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - Presets Bar
+    // MARK: - Presets Bar (3 Equal Width Columns)
     private var presetsBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(PresetType.allCases) { preset in
-                    Button(action: {
-                        settings.applyPreset(preset)
-                        HapticManager.shared.triggerClick()
-                        HUDManager.shared.show(icon: preset.icon, title: "Preset Applied", subtitle: preset.rawValue)
-                    }) {
-                        HStack(spacing: 5) {
-                            Image(systemName: preset.icon)
-                                .font(.system(size: 10, weight: .bold))
-                            Text(preset.rawValue)
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            Capsule()
-                                .fill(Color.primary.opacity(0.05))
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.primary.opacity(0.12), lineWidth: 0.8)
-                                )
-                        )
+        HStack(spacing: 8) {
+            ForEach(PresetType.allCases) { preset in
+                Button(action: {
+                    settings.applyPreset(preset)
+                    HapticManager.shared.triggerClick()
+                    HUDManager.shared.show(icon: preset.icon, title: "Preset Applied", subtitle: preset.rawValue)
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: preset.icon)
+                            .font(.system(size: 10, weight: .bold))
+                        Text(preset.rawValue)
+                            .font(.system(size: 11, weight: .medium))
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(Color.primary.opacity(0.05))
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color.primary.opacity(0.12), lineWidth: 0.8)
+                            )
+                    )
                 }
+                .buttonStyle(.plain)
             }
         }
     }
 
-    // MARK: - Navigation Pill Bar
+    // MARK: - Navigation Tabs Bar (4 Equal Width Responsive Buttons)
     private var navigationPillBar: some View {
         HStack(spacing: 6) {
-            navPill(title: "4-Finger", icon: "hand.raised.fill", index: 0)
-            navPill(title: "3-Finger", icon: "hand.point.up.left.and.right", index: 1)
-            navPill(title: "2-Finger & Corners", icon: "square.grid.2x2.fill", index: 2)
-            navPill(title: "Preferences", icon: "gearshape.fill", index: 3)
+            navPill(title: "4 Fingers", icon: "hand.raised.fill", index: 0)
+            navPill(title: "3 Fingers", icon: "hand.point.up.left.and.right", index: 1)
+            navPill(title: "2 & Corners", icon: "square.grid.2x2.fill", index: 2)
+            navPill(title: "Settings", icon: "gearshape.fill", index: 3)
         }
     }
 
@@ -167,8 +166,10 @@ struct SettingsView: View {
                     .font(.system(size: 10, weight: .semibold))
                 Text(title)
                     .font(.system(size: 11, weight: selectedTab == index ? .bold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 4)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity)
             .background(
@@ -191,7 +192,7 @@ struct SettingsView: View {
                 id: "fourFingerVertical",
                 icon: "arrow.up.and.down",
                 title: "4-Finger Vertical Swipe",
-                subtitle: "Swipe up / down on trackpad",
+                subtitle: "Default: Adjust System Volume",
                 binding: $settings.fourFingerVerticalAction
             )
 
@@ -199,7 +200,7 @@ struct SettingsView: View {
                 id: "fourFingerTap",
                 icon: "hand.tap.fill",
                 title: "4-Finger Single Tap",
-                subtitle: "Quick tap with 4 fingers",
+                subtitle: "Default: Play / Pause (Spotify, Music)",
                 binding: $settings.fourFingerTapAction
             )
 
@@ -234,9 +235,9 @@ struct SettingsView: View {
         VStack(spacing: 8) {
             gestureRow(
                 id: "threeFingerTap",
-                icon: "computermouse.fill",
+                icon: "camera.fill",
                 title: "3-Finger Single Tap",
-                subtitle: "Tip: Assign to Middle Click for tabs/CAD",
+                subtitle: "Default: Take Screenshot (Cmd+Shift+4)",
                 binding: $settings.threeFingerTapAction
             )
 
@@ -517,7 +518,7 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .frame(maxWidth: 160, alignment: .trailing)
+                .frame(maxWidth: 175, alignment: .trailing)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))

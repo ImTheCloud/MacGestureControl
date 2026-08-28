@@ -19,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 1. Setup SwiftUI Settings Popover
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 410, height: 490)
+        popover.contentSize = NSSize(width: 440, height: 500)
         popover.behavior = .transient
         popover.contentViewController = NSHostingController(rootView: SettingsView())
         self.popover = popover
