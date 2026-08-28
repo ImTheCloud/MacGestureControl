@@ -36,7 +36,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .volume: return "System Volume"
         case .brightness: return "Screen Brightness"
-        case .mediaPlayPause: return "Play / Pause Media"
+        case .mediaPlayPause: return "Play / Pause Media (Spotify, Apple Music)"
         case .mediaNext: return "Next Track"
         case .mediaPrevious: return "Previous Track"
         case .toggleMute: return "Mute / Unmute Audio"
@@ -90,138 +90,138 @@ class AppSettings: ObservableObject {
 
     // MARK: - Global Switches
     @Published var isEnabled: Bool {
-        didSet { UserDefaults.standard.set(isEnabled, forKey: "app_isEnabled") }
+        didSet { UserDefaults.standard.set(isEnabled, forKey: "app_isEnabled_v4") }
     }
     @Published var hapticsEnabled: Bool {
-        didSet { UserDefaults.standard.set(hapticsEnabled, forKey: "app_hapticsEnabled") }
+        didSet { UserDefaults.standard.set(hapticsEnabled, forKey: "app_hapticsEnabled_v4") }
     }
     @Published var showHUD: Bool {
-        didSet { UserDefaults.standard.set(showHUD, forKey: "app_showHUD") }
+        didSet { UserDefaults.standard.set(showHUD, forKey: "app_showHUD_v4") }
     }
     @Published var menuBarIcon: String {
-        didSet { UserDefaults.standard.set(menuBarIcon, forKey: "app_menuBarIcon") }
+        didSet { UserDefaults.standard.set(menuBarIcon, forKey: "app_menuBarIcon_v4") }
     }
     @Published var sensitivity: Double {
-        didSet { UserDefaults.standard.set(sensitivity, forKey: "app_sensitivity") }
+        didSet { UserDefaults.standard.set(sensitivity, forKey: "app_sensitivity_v4") }
     }
     @Published var targetBundleId: String {
-        didSet { UserDefaults.standard.set(targetBundleId, forKey: "app_targetBundleId") }
+        didSet { UserDefaults.standard.set(targetBundleId, forKey: "app_targetBundleId_v4") }
     }
 
-    // MARK: - 4-Finger Gestures (Default: ONLY 4-Finger Vertical is active)
+    // MARK: - 4-Finger Gestures (Defaults: Vertical = Volume, Tap = Play/Pause)
     @Published var fourFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerVerticalAction.rawValue, forKey: "fourFingerVerticalAction_v3") }
+        didSet { UserDefaults.standard.set(fourFingerVerticalAction.rawValue, forKey: "fourFingerVerticalAction_v4") }
     }
     @Published var fourFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerHorizontalAction.rawValue, forKey: "fourFingerHorizontalAction_v3") }
+        didSet { UserDefaults.standard.set(fourFingerHorizontalAction.rawValue, forKey: "fourFingerHorizontalAction_v4") }
     }
     @Published var fourFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerTapAction.rawValue, forKey: "fourFingerTapAction_v3") }
+        didSet { UserDefaults.standard.set(fourFingerTapAction.rawValue, forKey: "fourFingerTapAction_v4") }
     }
     @Published var fourFingerPinchInAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerPinchInAction.rawValue, forKey: "fourFingerPinchInAction_v3") }
+        didSet { UserDefaults.standard.set(fourFingerPinchInAction.rawValue, forKey: "fourFingerPinchInAction_v4") }
     }
     @Published var fourFingerPinchOutAction: GestureAction {
-        didSet { UserDefaults.standard.set(fourFingerPinchOutAction.rawValue, forKey: "fourFingerPinchOutAction_v3") }
+        didSet { UserDefaults.standard.set(fourFingerPinchOutAction.rawValue, forKey: "fourFingerPinchOutAction_v4") }
     }
 
     // MARK: - 3-Finger Gestures (Default: All Disabled)
     @Published var threeFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerVerticalAction.rawValue, forKey: "threeFingerVerticalAction_v3") }
+        didSet { UserDefaults.standard.set(threeFingerVerticalAction.rawValue, forKey: "threeFingerVerticalAction_v4") }
     }
     @Published var threeFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerHorizontalAction.rawValue, forKey: "threeFingerHorizontalAction_v3") }
+        didSet { UserDefaults.standard.set(threeFingerHorizontalAction.rawValue, forKey: "threeFingerHorizontalAction_v4") }
     }
     @Published var threeFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerTapAction.rawValue, forKey: "threeFingerTapAction_v3") }
+        didSet { UserDefaults.standard.set(threeFingerTapAction.rawValue, forKey: "threeFingerTapAction_v4") }
     }
     @Published var threeFingerPinchInAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerPinchInAction.rawValue, forKey: "threeFingerPinchInAction_v3") }
+        didSet { UserDefaults.standard.set(threeFingerPinchInAction.rawValue, forKey: "threeFingerPinchInAction_v4") }
     }
     @Published var threeFingerPinchOutAction: GestureAction {
-        didSet { UserDefaults.standard.set(threeFingerPinchOutAction.rawValue, forKey: "threeFingerPinchOutAction_v3") }
+        didSet { UserDefaults.standard.set(threeFingerPinchOutAction.rawValue, forKey: "threeFingerPinchOutAction_v4") }
     }
 
     // MARK: - 2-Finger Gestures (Default: All Disabled to preserve normal scrolling)
     @Published var twoFingerVerticalAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerVerticalAction.rawValue, forKey: "twoFingerVerticalAction_v3") }
+        didSet { UserDefaults.standard.set(twoFingerVerticalAction.rawValue, forKey: "twoFingerVerticalAction_v4") }
     }
     @Published var twoFingerHorizontalAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerHorizontalAction.rawValue, forKey: "twoFingerHorizontalAction_v3") }
+        didSet { UserDefaults.standard.set(twoFingerHorizontalAction.rawValue, forKey: "twoFingerHorizontalAction_v4") }
     }
     @Published var twoFingerTapAction: GestureAction {
-        didSet { UserDefaults.standard.set(twoFingerTapAction.rawValue, forKey: "twoFingerTapAction_v3") }
+        didSet { UserDefaults.standard.set(twoFingerTapAction.rawValue, forKey: "twoFingerTapAction_v4") }
     }
 
     // MARK: - Corner Taps (Default: All Disabled)
     @Published var cornerTopLeftAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerTopLeftAction.rawValue, forKey: "cornerTopLeftAction_v3") }
+        didSet { UserDefaults.standard.set(cornerTopLeftAction.rawValue, forKey: "cornerTopLeftAction_v4") }
     }
     @Published var cornerTopRightAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerTopRightAction.rawValue, forKey: "cornerTopRightAction_v3") }
+        didSet { UserDefaults.standard.set(cornerTopRightAction.rawValue, forKey: "cornerTopRightAction_v4") }
     }
     @Published var cornerBottomLeftAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerBottomLeftAction.rawValue, forKey: "cornerBottomLeftAction_v3") }
+        didSet { UserDefaults.standard.set(cornerBottomLeftAction.rawValue, forKey: "cornerBottomLeftAction_v4") }
     }
     @Published var cornerBottomRightAction: GestureAction {
-        didSet { UserDefaults.standard.set(cornerBottomRightAction.rawValue, forKey: "cornerBottomRightAction_v3") }
+        didSet { UserDefaults.standard.set(cornerBottomRightAction.rawValue, forKey: "cornerBottomRightAction_v4") }
     }
 
     private init() {
-        self.isEnabled = UserDefaults.standard.object(forKey: "app_isEnabled") as? Bool ?? true
-        self.hapticsEnabled = UserDefaults.standard.object(forKey: "app_hapticsEnabled") as? Bool ?? true
-        self.showHUD = UserDefaults.standard.object(forKey: "app_showHUD") as? Bool ?? true
-        self.menuBarIcon = UserDefaults.standard.string(forKey: "app_menuBarIcon") ?? "hand.draw.fill"
-        self.sensitivity = UserDefaults.standard.object(forKey: "app_sensitivity") as? Double ?? 0.05
-        self.targetBundleId = UserDefaults.standard.string(forKey: "app_targetBundleId") ?? "com.apple.Notes"
+        self.isEnabled = UserDefaults.standard.object(forKey: "app_isEnabled_v4") as? Bool ?? true
+        self.hapticsEnabled = UserDefaults.standard.object(forKey: "app_hapticsEnabled_v4") as? Bool ?? true
+        self.showHUD = UserDefaults.standard.object(forKey: "app_showHUD_v4") as? Bool ?? true
+        self.menuBarIcon = UserDefaults.standard.string(forKey: "app_menuBarIcon_v4") ?? "hand.draw.fill"
+        self.sensitivity = UserDefaults.standard.object(forKey: "app_sensitivity_v4") as? Double ?? 0.05
+        self.targetBundleId = UserDefaults.standard.string(forKey: "app_targetBundleId_v4") ?? "com.apple.Notes"
 
-        // 4-Finger: ONLY Vertical Swipe is active by default (Volume Control)
-        let fv = UserDefaults.standard.string(forKey: "fourFingerVerticalAction_v3") ?? GestureAction.volume.rawValue
+        // 4-Finger: Vertical = Volume, Tap = Play/Pause Media
+        let fv = UserDefaults.standard.string(forKey: "fourFingerVerticalAction_v4") ?? GestureAction.volume.rawValue
         self.fourFingerVerticalAction = GestureAction(rawValue: fv) ?? .volume
-        let fh = UserDefaults.standard.string(forKey: "fourFingerHorizontalAction_v3") ?? GestureAction.none.rawValue
+        let fh = UserDefaults.standard.string(forKey: "fourFingerHorizontalAction_v4") ?? GestureAction.none.rawValue
         self.fourFingerHorizontalAction = GestureAction(rawValue: fh) ?? .none
-        let ft = UserDefaults.standard.string(forKey: "fourFingerTapAction_v3") ?? GestureAction.none.rawValue
-        self.fourFingerTapAction = GestureAction(rawValue: ft) ?? .none
-        let fpi = UserDefaults.standard.string(forKey: "fourFingerPinchInAction_v3") ?? GestureAction.none.rawValue
+        let ft = UserDefaults.standard.string(forKey: "fourFingerTapAction_v4") ?? GestureAction.mediaPlayPause.rawValue
+        self.fourFingerTapAction = GestureAction(rawValue: ft) ?? .mediaPlayPause
+        let fpi = UserDefaults.standard.string(forKey: "fourFingerPinchInAction_v4") ?? GestureAction.none.rawValue
         self.fourFingerPinchInAction = GestureAction(rawValue: fpi) ?? .none
-        let fpo = UserDefaults.standard.string(forKey: "fourFingerPinchOutAction_v3") ?? GestureAction.none.rawValue
+        let fpo = UserDefaults.standard.string(forKey: "fourFingerPinchOutAction_v4") ?? GestureAction.none.rawValue
         self.fourFingerPinchOutAction = GestureAction(rawValue: fpo) ?? .none
 
         // 3-Finger: All disabled by default
-        let tv = UserDefaults.standard.string(forKey: "threeFingerVerticalAction_v3") ?? GestureAction.none.rawValue
+        let tv = UserDefaults.standard.string(forKey: "threeFingerVerticalAction_v4") ?? GestureAction.none.rawValue
         self.threeFingerVerticalAction = GestureAction(rawValue: tv) ?? .none
-        let th = UserDefaults.standard.string(forKey: "threeFingerHorizontalAction_v3") ?? GestureAction.none.rawValue
+        let th = UserDefaults.standard.string(forKey: "threeFingerHorizontalAction_v4") ?? GestureAction.none.rawValue
         self.threeFingerHorizontalAction = GestureAction(rawValue: th) ?? .none
-        let tt = UserDefaults.standard.string(forKey: "threeFingerTapAction_v3") ?? GestureAction.none.rawValue
+        let tt = UserDefaults.standard.string(forKey: "threeFingerTapAction_v4") ?? GestureAction.none.rawValue
         self.threeFingerTapAction = GestureAction(rawValue: tt) ?? .none
-        let tpi = UserDefaults.standard.string(forKey: "threeFingerPinchInAction_v3") ?? GestureAction.none.rawValue
+        let tpi = UserDefaults.standard.string(forKey: "threeFingerPinchInAction_v4") ?? GestureAction.none.rawValue
         self.threeFingerPinchInAction = GestureAction(rawValue: tpi) ?? .none
-        let tpo = UserDefaults.standard.string(forKey: "threeFingerPinchOutAction_v3") ?? GestureAction.none.rawValue
+        let tpo = UserDefaults.standard.string(forKey: "threeFingerPinchOutAction_v4") ?? GestureAction.none.rawValue
         self.threeFingerPinchOutAction = GestureAction(rawValue: tpo) ?? .none
 
         // 2-Finger: All disabled by default
-        let twoV = UserDefaults.standard.string(forKey: "twoFingerVerticalAction_v3") ?? GestureAction.none.rawValue
+        let twoV = UserDefaults.standard.string(forKey: "twoFingerVerticalAction_v4") ?? GestureAction.none.rawValue
         self.twoFingerVerticalAction = GestureAction(rawValue: twoV) ?? .none
-        let twoH = UserDefaults.standard.string(forKey: "twoFingerHorizontalAction_v3") ?? GestureAction.none.rawValue
+        let twoH = UserDefaults.standard.string(forKey: "twoFingerHorizontalAction_v4") ?? GestureAction.none.rawValue
         self.twoFingerHorizontalAction = GestureAction(rawValue: twoH) ?? .none
-        let twoT = UserDefaults.standard.string(forKey: "twoFingerTapAction_v3") ?? GestureAction.none.rawValue
+        let twoT = UserDefaults.standard.string(forKey: "twoFingerTapAction_v4") ?? GestureAction.none.rawValue
         self.twoFingerTapAction = GestureAction(rawValue: twoT) ?? .none
 
         // Corner Taps: All disabled by default
-        let ctl = UserDefaults.standard.string(forKey: "cornerTopLeftAction_v3") ?? GestureAction.none.rawValue
+        let ctl = UserDefaults.standard.string(forKey: "cornerTopLeftAction_v4") ?? GestureAction.none.rawValue
         self.cornerTopLeftAction = GestureAction(rawValue: ctl) ?? .none
-        let ctr = UserDefaults.standard.string(forKey: "cornerTopRightAction_v3") ?? GestureAction.none.rawValue
+        let ctr = UserDefaults.standard.string(forKey: "cornerTopRightAction_v4") ?? GestureAction.none.rawValue
         self.cornerTopRightAction = GestureAction(rawValue: ctr) ?? .none
-        let cbl = UserDefaults.standard.string(forKey: "cornerBottomLeftAction_v3") ?? GestureAction.none.rawValue
+        let cbl = UserDefaults.standard.string(forKey: "cornerBottomLeftAction_v4") ?? GestureAction.none.rawValue
         self.cornerBottomLeftAction = GestureAction(rawValue: cbl) ?? .none
-        let cbr = UserDefaults.standard.string(forKey: "cornerBottomRightAction_v3") ?? GestureAction.none.rawValue
+        let cbr = UserDefaults.standard.string(forKey: "cornerBottomRightAction_v4") ?? GestureAction.none.rawValue
         self.cornerBottomRightAction = GestureAction(rawValue: cbr) ?? .none
     }
 
     func resetToDefaults() {
         fourFingerVerticalAction = .volume
         fourFingerHorizontalAction = .none
-        fourFingerTapAction = .none
+        fourFingerTapAction = .mediaPlayPause
         fourFingerPinchInAction = .none
         fourFingerPinchOutAction = .none
 

@@ -139,6 +139,8 @@ class SystemController {
                 tell application "Spotify" to playpause
             else if application "Music" is running then
                 tell application "Music" to playpause
+            else
+                tell application "System Events" to key code 16 using {option down}
             end if
             """
         case .next:

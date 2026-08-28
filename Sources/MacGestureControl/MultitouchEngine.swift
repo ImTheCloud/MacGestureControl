@@ -262,8 +262,8 @@ class MultitouchEngine: ObservableObject {
         if fingerCount == 0 && touchStartCount > 0 {
             let duration = timestamp - touchStartTime
 
-            // Only consider it a tap if duration is short (< 0.35s) and little movement occurred
-            if duration < 0.35 && maxMovementDuringTouch < 0.035 {
+            // Consider it a tap if duration is < 0.48s and minimal drag occurred
+            if duration < 0.48 && maxMovementDuringTouch < 0.075 {
                 switch touchStartCount {
                 case 4:
                     if settings.fourFingerTapAction != .none {
