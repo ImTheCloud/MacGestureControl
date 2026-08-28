@@ -19,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 1. Setup SwiftUI Settings Popover
         let popover = NSPopover()
-        popover.contentSize = NSSize(width: 380, height: 440)
+        popover.contentSize = NSSize(width: 410, height: 460)
         popover.behavior = .transient
         popover.animates = true
         let hostingController = NSHostingController(rootView: SettingsView())
@@ -58,7 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             if let hostingView = popover.contentViewController?.view {
                 let size = hostingView.fittingSize
-                popover.contentSize = NSSize(width: 380, height: max(440, size.height))
+                popover.contentSize = NSSize(width: 410, height: max(460, size.height))
             }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()

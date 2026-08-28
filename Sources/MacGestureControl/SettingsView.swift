@@ -5,141 +5,56 @@ struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var engine = MultitouchEngine.shared
     @ObservedObject var launchAtLogin = LaunchAtLoginManager.shared
-    @State private var showAdvanced: Bool = false
+    @State private var selectedTab: Int = 0
 
     var body: some View {
-        VStack(spacing: 11) {
+        VStack(spacing: 0) {
             // MARK: - Header
             headerView
-                .padding(.top, 8)
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
 
             Divider().opacity(0.5)
 
-            // MARK: - Core Active Gestures
-            VStack(alignment: .leading, spacing: 7) {
-                Text("GESTURES")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 4)
+            // MARK: - Navigation Tabs Bar (5 Distinct Tabs)
+            navigationTabsBar
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
 
-                gestureRow(
-                    id: "fourFingerVertical",
-                    icon: "speaker.wave.3.fill",
-                    title: "4-Finger Swipe",
-                    subtitle: "Slide up / down to change volume",
-                    binding: $settings.fourFingerVerticalAction
-                )
+            Divider().opacity(0.4)
 
-                gestureRow(
-                    id: "fourFingerTap",
-                    icon: "playpause.fill",
-                    title: "4-Finger Tap",
-                    subtitle: "Tap once to Play or Pause music",
-                    binding: $settings.fourFingerTapAction
-                )
-
-                gestureRow(
-                    id: "threeFingerTap",
-                    icon: "camera.fill",
-                    title: "3-Finger Tap",
-                    subtitle: "Tap once to take a Screenshot",
-                    binding: $settings.threeFingerTapAction
-                )
-            }
-
-            // MARK: - Advanced / More Gestures (Expandable)
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("MORE GESTURES")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 4)
-                        .padding(.top, 4)
-
-                    gestureRow(
-                        id: "threeFingerHorizontal",
-                        icon: "arrow.left.and.right",
-                        title: "3-Finger Swipe",
-                        subtitle: "Slide left / right on trackpad",
-                        binding: $settings.threeFingerHorizontalAction
-                    )
-
-                    gestureRow(
-                        id: "twoFingerTap",
-                        icon: "hand.tap.fill",
-                        title: "2-Finger Tap",
-                        subtitle: "Tap with 2 fingers simultaneously",
-                        binding: $settings.twoFingerTapAction
-                    )
-
-                    gestureRow(
-                        id: "cornerTopLeft",
-                        icon: "square.topthird.inset.filled",
-                        title: "Top-Left Corner",
-                        subtitle: "Tap top-left corner of trackpad",
-                        binding: $settings.cornerTopLeftAction
-                    )
+            // MARK: - Main Tab Content
+            ScrollView(showsIndicators: true) {
+                VStack(spacing: 8) {
+                    switch selectedTab {
+                    case 0:
+                        activeDashboardSection
+                    case 1:
+                        fourFingerSection
+                    case 2:
+                        threeFingerSection
+                    case 3:
+                        twoFingerSection
+                    case 4:
+                        cornersSection
+                    default:
+                        EmptyView()
+                    }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
             }
-
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                    showAdvanced.toggle()
-                }
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: showAdvanced ? "chevron.up" : "plus.circle")
-                    Text(showAdvanced ? "Hide Extra Gestures" : "More Gestures...")
-                }
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.accentColor)
-            }
-            .buttonStyle(.plain)
+            .frame(height: 310)
 
             Divider().opacity(0.5)
 
-            // MARK: - Options (Simple & Crystal Clear)
-            VStack(spacing: 7) {
-                toggleRow(
-                    icon: "power.circle.fill",
-                    title: "Start automatically with Mac",
-                    isOn: Binding(
-                        get: { launchAtLogin.isEnabled },
-                        set: { launchAtLogin.setEnabled($0) }
-                    )
-                )
-
-                toggleRow(
-                    icon: "hand.tap.fill",
-                    title: "Trackpad physical click sensation",
-                    isOn: $settings.hapticsEnabled
-                )
-
-                toggleRow(
-                    icon: "macwindow.on.rectangle",
-                    title: "Show visual bubble on screen",
-                    isOn: $settings.showHUD
-                )
-            }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.primary.opacity(0.03))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
-                    )
-            )
-
-            Divider().opacity(0.5)
-
-            // MARK: - Minimal Footer
+            // MARK: - Footer
             footerView
-                .padding(.bottom, 2)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
         }
-        .padding(16)
-        .frame(width: 380)
+        .frame(width: 410)
         .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
     }
 
@@ -184,32 +99,330 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Gesture Row
+    // MARK: - Navigation Tabs Bar (5 Equal Responsive Buttons)
+    private var navigationTabsBar: some View {
+        HStack(spacing: 4) {
+            tabButton(title: "Active", icon: "bolt.fill", index: 0)
+            tabButton(title: "4-Finger", icon: "hand.raised.fill", index: 1)
+            tabButton(title: "3-Finger", icon: "hand.point.up.left.and.right", index: 2)
+            tabButton(title: "2-Finger", icon: "hand.point.up.2.fill", index: 3)
+            tabButton(title: "Corners", icon: "square.grid.2x2.fill", index: 4)
+        }
+    }
+
+    private func tabButton(title: String, icon: String, index: Int) -> some View {
+        Button(action: {
+            selectedTab = index
+            HapticManager.shared.trigger()
+        }) {
+            VStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 10, weight: selectedTab == index ? .bold : .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(selectedTab == index ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.04))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .stroke(selectedTab == index ? Color.accentColor.opacity(0.4) : Color.clear, lineWidth: 1)
+                    )
+            )
+            .foregroundColor(selectedTab == index ? .accentColor : .primary.opacity(0.8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Tab 0: Active Dashboard (Default View with Settings)
+    private var activeDashboardSection: some View {
+        VStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("ENABLED GESTURES")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 4)
+
+                // 4-Finger Vertical (Volume default)
+                if settings.fourFingerVerticalAction != .none {
+                    gestureRow(
+                        id: "fourFingerVertical",
+                        icon: "speaker.wave.3.fill",
+                        title: "4-Finger Swipe",
+                        subtitle: "Slide up / down to change volume",
+                        binding: $settings.fourFingerVerticalAction
+                    )
+                }
+
+                // 4-Finger Tap (Play/Pause default)
+                if settings.fourFingerTapAction != .none {
+                    gestureRow(
+                        id: "fourFingerTap",
+                        icon: "playpause.fill",
+                        title: "4-Finger Tap",
+                        subtitle: "Tap once to Play or Pause music",
+                        binding: $settings.fourFingerTapAction
+                    )
+                }
+
+                // 3-Finger Tap (Screenshot default)
+                if settings.threeFingerTapAction != .none {
+                    gestureRow(
+                        id: "threeFingerTap",
+                        icon: "camera.fill",
+                        title: "3-Finger Tap",
+                        subtitle: "Tap once to take a Screenshot",
+                        binding: $settings.threeFingerTapAction
+                    )
+                }
+
+                // Other dynamically enabled gestures
+                if settings.threeFingerHorizontalAction != .none {
+                    gestureRow(id: "threeFingerHorizontal", icon: "arrow.left.and.right", title: "3-Finger Swipe", subtitle: "Slide left / right", binding: $settings.threeFingerHorizontalAction)
+                }
+                if settings.twoFingerTapAction != .none {
+                    gestureRow(id: "twoFingerTap", icon: "hand.tap.fill", title: "2-Finger Tap", subtitle: "Tap with 2 fingers", binding: $settings.twoFingerTapAction)
+                }
+                if settings.cornerTopLeftAction != .none {
+                    gestureRow(id: "cornerTopLeft", icon: "square.topthird.inset.filled", title: "Top-Left Corner", subtitle: "Tap top-left corner", binding: $settings.cornerTopLeftAction)
+                }
+            }
+
+            Divider().opacity(0.4)
+
+            // Essential Settings Toggles
+            VStack(spacing: 6) {
+                toggleRow(
+                    icon: "power.circle.fill",
+                    title: "Start automatically with Mac",
+                    isOn: Binding(
+                        get: { launchAtLogin.isEnabled },
+                        set: { launchAtLogin.setEnabled($0) }
+                    )
+                )
+
+                toggleRow(
+                    icon: "hand.tap.fill",
+                    title: "Trackpad physical click sensation",
+                    isOn: $settings.hapticsEnabled
+                )
+
+                toggleRow(
+                    icon: "macwindow.on.rectangle",
+                    title: "Show visual bubble on screen",
+                    isOn: $settings.showHUD
+                )
+            }
+            .padding(9)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.primary.opacity(0.03))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                    )
+            )
+        }
+    }
+
+    // MARK: - Tab 1: 4-Finger Section
+    private var fourFingerSection: some View {
+        VStack(spacing: 7) {
+            gestureRow(
+                id: "fourFingerVertical",
+                icon: "arrow.up.and.down",
+                title: "4-Finger Vertical Swipe",
+                subtitle: "Default: Adjust System Volume",
+                binding: $settings.fourFingerVerticalAction
+            )
+
+            gestureRow(
+                id: "fourFingerTap",
+                icon: "hand.tap.fill",
+                title: "4-Finger Single Tap",
+                subtitle: "Default: Play / Pause Media",
+                binding: $settings.fourFingerTapAction
+            )
+
+            gestureRow(
+                id: "fourFingerHorizontal",
+                icon: "arrow.left.and.right",
+                title: "4-Finger Horizontal Swipe",
+                subtitle: "Swipe left / right on trackpad",
+                binding: $settings.fourFingerHorizontalAction
+            )
+
+            gestureRow(
+                id: "fourFingerPinchIn",
+                icon: "arrow.down.right.and.arrow.up.left",
+                title: "4-Finger Pinch In",
+                subtitle: "Pinch fingers closer together",
+                binding: $settings.fourFingerPinchInAction
+            )
+
+            gestureRow(
+                id: "fourFingerPinchOut",
+                icon: "arrow.up.left.and.arrow.down.right",
+                title: "4-Finger Spread Out",
+                subtitle: "Spread fingers apart",
+                binding: $settings.fourFingerPinchOutAction
+            )
+        }
+    }
+
+    // MARK: - Tab 2: 3-Finger Section
+    private var threeFingerSection: some View {
+        VStack(spacing: 7) {
+            gestureRow(
+                id: "threeFingerTap",
+                icon: "camera.fill",
+                title: "3-Finger Single Tap",
+                subtitle: "Default: Take Screenshot",
+                binding: $settings.threeFingerTapAction
+            )
+
+            gestureRow(
+                id: "threeFingerHorizontal",
+                icon: "arrow.left.and.right",
+                title: "3-Finger Horizontal Swipe",
+                subtitle: "Swipe left / right with 3 fingers",
+                binding: $settings.threeFingerHorizontalAction
+            )
+
+            gestureRow(
+                id: "threeFingerVertical",
+                icon: "arrow.up.and.down",
+                title: "3-Finger Vertical Swipe",
+                subtitle: "Swipe up / down with 3 fingers",
+                binding: $settings.threeFingerVerticalAction
+            )
+
+            gestureRow(
+                id: "threeFingerPinchIn",
+                icon: "arrow.down.right.and.arrow.up.left",
+                title: "3-Finger Pinch In",
+                subtitle: "Pinch in with 3 fingers",
+                binding: $settings.threeFingerPinchInAction
+            )
+
+            gestureRow(
+                id: "threeFingerPinchOut",
+                icon: "arrow.up.left.and.arrow.down.right",
+                title: "3-Finger Spread Out",
+                subtitle: "Spread out with 3 fingers",
+                binding: $settings.threeFingerPinchOutAction
+            )
+        }
+    }
+
+    // MARK: - Tab 3: 2-Finger Section
+    private var twoFingerSection: some View {
+        VStack(spacing: 7) {
+            Text("2-Finger gestures (Disabled by default to protect browser scroll)")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 2)
+
+            gestureRow(
+                id: "twoFingerTap",
+                icon: "hand.tap.fill",
+                title: "2-Finger Quick Tap",
+                subtitle: "Tap with 2 fingers simultaneously",
+                binding: $settings.twoFingerTapAction
+            )
+
+            gestureRow(
+                id: "twoFingerVertical",
+                icon: "arrow.up.and.down",
+                title: "2-Finger Vertical Scroll Override",
+                subtitle: "Overrides normal macOS page scrolling",
+                binding: $settings.twoFingerVerticalAction
+            )
+
+            gestureRow(
+                id: "twoFingerHorizontal",
+                icon: "arrow.left.and.right",
+                title: "2-Finger Horizontal Scroll Override",
+                subtitle: "Overrides normal horizontal scrolling",
+                binding: $settings.twoFingerHorizontalAction
+            )
+        }
+    }
+
+    // MARK: - Tab 4: Corner Taps Section
+    private var cornersSection: some View {
+        VStack(spacing: 7) {
+            Text("Single-finger taps in trackpad corners")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 2)
+
+            gestureRow(
+                id: "cornerTopLeft",
+                icon: "square.topthird.inset.filled",
+                title: "Top-Left Corner Tap",
+                subtitle: "Tap upper-left corner of trackpad",
+                binding: $settings.cornerTopLeftAction
+            )
+
+            gestureRow(
+                id: "cornerTopRight",
+                icon: "square.trailingthird.inset.filled",
+                title: "Top-Right Corner Tap",
+                subtitle: "Tap upper-right corner of trackpad",
+                binding: $settings.cornerTopRightAction
+            )
+
+            gestureRow(
+                id: "cornerBottomLeft",
+                icon: "square.bottomthird.inset.filled",
+                title: "Bottom-Left Corner Tap",
+                subtitle: "Tap lower-left corner of trackpad",
+                binding: $settings.cornerBottomLeftAction
+            )
+
+            gestureRow(
+                id: "cornerBottomRight",
+                icon: "square.trailingthird.inset.filled",
+                title: "Bottom-Right Corner Tap",
+                subtitle: "Tap lower-right corner of trackpad",
+                binding: $settings.cornerBottomRightAction
+            )
+        }
+    }
+
+    // MARK: - Gesture Row Component
     private func gestureRow(id: String, icon: String, title: String, subtitle: String, binding: Binding<GestureAction>) -> some View {
         let isFlashing = engine.lastTriggeredGestureId == id
         let isAssigned = binding.wrappedValue != .none
 
-        return HStack(spacing: 10) {
+        return HStack(spacing: 9) {
             ZStack {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isAssigned ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.05))
-                    .frame(width: 28, height: 28)
+                    .frame(width: 26, height: 26)
                 Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(isAssigned ? .accentColor : .secondary)
             }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.primary)
                 Text(subtitle)
-                    .font(.system(size: 10))
+                    .font(.system(size: 9))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
 
             Menu {
                 ForEach(GestureAction.allCases) { action in
@@ -226,18 +439,18 @@ struct SettingsView: View {
                     }
                 }
             } label: {
-                HStack(spacing: 5) {
+                HStack(spacing: 4) {
                     Image(systemName: binding.wrappedValue.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 9, weight: .semibold))
                     Text(binding.wrappedValue.shortTitle)
-                        .font(.system(size: 11, weight: isAssigned ? .semibold : .regular))
+                        .font(.system(size: 10, weight: isAssigned ? .semibold : .regular))
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 8))
+                        .font(.system(size: 7))
                         .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3.5)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
@@ -250,20 +463,20 @@ struct SettingsView: View {
             }
             .menuStyle(.borderlessButton)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
                 .fill(isFlashing ? Color.accentColor.opacity(0.25) : (isAssigned ? Color.primary.opacity(0.03) : Color.clear))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .stroke(isFlashing ? Color.accentColor : Color.primary.opacity(0.05), lineWidth: isFlashing ? 1.5 : 0.8)
                 )
         )
         .animation(.easeInOut(duration: 0.2), value: isFlashing)
     }
 
-    // MARK: - Toggle Row
+    // MARK: - Toggle Row Component
     private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
@@ -279,7 +492,7 @@ struct SettingsView: View {
             Toggle("", isOn: isOn)
                 .toggleStyle(SwitchToggleStyle())
                 .labelsHidden()
-                .scaleEffect(0.8)
+                .scaleEffect(0.75)
         }
     }
 
@@ -304,7 +517,7 @@ struct SettingsView: View {
                 HUDManager.shared.show(icon: "arrow.counterclockwise", title: "Reset to Defaults")
                 HapticManager.shared.triggerClick()
             }) {
-                Text("Reset")
+                Text("Reset Defaults")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }
@@ -321,7 +534,6 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 4)
     }
 }
 
