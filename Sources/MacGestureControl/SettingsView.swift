@@ -26,7 +26,7 @@ struct SettingsView: View {
                     id: "fourFingerVertical",
                     icon: "speaker.wave.3.fill",
                     title: "4-Finger Swipe",
-                    subtitle: "Swipe up / down on trackpad",
+                    subtitle: "Slide up / down to change volume",
                     binding: $settings.fourFingerVerticalAction
                 )
 
@@ -34,7 +34,7 @@ struct SettingsView: View {
                     id: "fourFingerTap",
                     icon: "playpause.fill",
                     title: "4-Finger Tap",
-                    subtitle: "Brief tap with 4 fingers",
+                    subtitle: "Tap once to Play or Pause music",
                     binding: $settings.fourFingerTapAction
                 )
 
@@ -42,7 +42,7 @@ struct SettingsView: View {
                     id: "threeFingerTap",
                     icon: "camera.fill",
                     title: "3-Finger Tap",
-                    subtitle: "Brief tap with 3 fingers",
+                    subtitle: "Tap once to take a Screenshot",
                     binding: $settings.threeFingerTapAction
                 )
             }
@@ -60,7 +60,7 @@ struct SettingsView: View {
                         id: "threeFingerHorizontal",
                         icon: "arrow.left.and.right",
                         title: "3-Finger Swipe",
-                        subtitle: "Swipe left / right on trackpad",
+                        subtitle: "Slide left / right on trackpad",
                         binding: $settings.threeFingerHorizontalAction
                     )
 
@@ -68,7 +68,7 @@ struct SettingsView: View {
                         id: "twoFingerTap",
                         icon: "hand.tap.fill",
                         title: "2-Finger Tap",
-                        subtitle: "Tap with 2 fingers",
+                        subtitle: "Tap with 2 fingers simultaneously",
                         binding: $settings.twoFingerTapAction
                     )
 
@@ -76,7 +76,7 @@ struct SettingsView: View {
                         id: "cornerTopLeft",
                         icon: "square.topthird.inset.filled",
                         title: "Top-Left Corner",
-                        subtitle: "Tap trackpad top-left corner",
+                        subtitle: "Tap top-left corner of trackpad",
                         binding: $settings.cornerTopLeftAction
                     )
                 }
@@ -99,11 +99,11 @@ struct SettingsView: View {
 
             Divider().opacity(0.5)
 
-            // MARK: - Preferences (3 Simple Essential Toggles)
-            VStack(spacing: 6) {
+            // MARK: - Options (Simple & Crystal Clear)
+            VStack(spacing: 7) {
                 toggleRow(
-                    icon: "bolt.fill",
-                    title: "Launch at Startup",
+                    icon: "power.circle.fill",
+                    title: "Start automatically with Mac",
                     isOn: Binding(
                         get: { launchAtLogin.isEnabled },
                         set: { launchAtLogin.setEnabled($0) }
@@ -111,14 +111,14 @@ struct SettingsView: View {
                 )
 
                 toggleRow(
-                    icon: "iphone.radiowaves.left.and.right",
-                    title: "Haptic Feedback (Clicks)",
+                    icon: "hand.tap.fill",
+                    title: "Trackpad physical click sensation",
                     isOn: $settings.hapticsEnabled
                 )
 
                 toggleRow(
-                    icon: "tv.fill",
-                    title: "On-Screen HUD (Volume, Media...)",
+                    icon: "macwindow.on.rectangle",
+                    title: "Show visual bubble on screen",
                     isOn: $settings.showHUD
                 )
             }
