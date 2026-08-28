@@ -20,10 +20,10 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
     // Audio
     case volume = "volume"
     case toggleMute = "toggle_mute"
+    case toggleMicrophone = "toggle_microphone"
 
     // Display
     case brightness = "brightness"
-    case sleepDisplay = "sleep_display"
     case lockScreen = "lock_screen"
 
     // Media
@@ -45,7 +45,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
     // Desktop & Spaces
     case missionControl = "mission_control"
     case appExpose = "app_expose"
-    case showDesktop = "show_desktop"
     case nextSpace = "next_space"
     case previousSpace = "previous_space"
 
@@ -59,16 +58,16 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
 
     var category: ActionCategory {
         switch self {
-        case .volume, .toggleMute:
+        case .volume, .toggleMute, .toggleMicrophone:
             return .audio
-        case .brightness, .sleepDisplay, .lockScreen:
+        case .brightness, .lockScreen:
             return .display
         case .mediaPlayPause, .mediaNext, .mediaPrevious:
             return .media
         case .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
              .centerWindow, .minimizeWindow, .fullScreenWindow, .closeWindow:
             return .windows
-        case .missionControl, .appExpose, .showDesktop, .nextSpace, .previousSpace:
+        case .missionControl, .appExpose, .nextSpace, .previousSpace:
             return .desktop
         case .screenshot, .spotlight, .middleClick, .launchApp, .none:
             return .system
@@ -81,8 +80,8 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .none: return "Disabled"
         case .volume: return "System Volume"
         case .toggleMute: return "Mute / Unmute Audio"
+        case .toggleMicrophone: return "Mute / Unmute Microphone"
         case .brightness: return "Screen Brightness"
-        case .sleepDisplay: return "Sleep Display"
         case .lockScreen: return "Lock Screen"
         case .mediaPlayPause: return "Play / Pause"
         case .mediaNext: return "Next Track"
@@ -98,7 +97,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .closeWindow: return "Close Window"
         case .missionControl: return "Mission Control"
         case .appExpose: return "App Exposé"
-        case .showDesktop: return "Show Desktop"
         case .nextSpace: return "Next Desktop"
         case .previousSpace: return "Previous Desktop"
         case .screenshot: return "Screenshot to Clipboard"
@@ -114,8 +112,8 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .none: return "Disabled"
         case .volume: return "Volume"
         case .toggleMute: return "Mute"
+        case .toggleMicrophone: return "Mic Mute"
         case .brightness: return "Brightness"
-        case .sleepDisplay: return "Sleep Display"
         case .lockScreen: return "Lock Screen"
         case .mediaPlayPause: return "Play / Pause"
         case .mediaNext: return "Next Track"
@@ -131,7 +129,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .closeWindow: return "Close Window"
         case .missionControl: return "Mission Control"
         case .appExpose: return "App Exposé"
-        case .showDesktop: return "Show Desktop"
         case .nextSpace: return "Next Desktop"
         case .previousSpace: return "Prev Desktop"
         case .screenshot: return "Screenshot"
@@ -146,8 +143,8 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .none: return "slash.circle"
         case .volume: return "speaker.wave.3.fill"
         case .toggleMute: return "speaker.slash.fill"
+        case .toggleMicrophone: return "mic.slash.fill"
         case .brightness: return "sun.max.fill"
-        case .sleepDisplay: return "display"
         case .lockScreen: return "lock.fill"
         case .mediaPlayPause: return "playpause.fill"
         case .mediaNext: return "forward.fill"
@@ -163,7 +160,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .closeWindow: return "xmark.rectangle"
         case .missionControl: return "rectangle.stack.fill"
         case .appExpose: return "square.on.square"
-        case .showDesktop: return "menubar.rectangle"
         case .nextSpace: return "arrow.right.square"
         case .previousSpace: return "arrow.left.square"
         case .screenshot: return "camera.fill"
@@ -194,8 +190,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .snapBottom: return .snapTop
         case .maximizeWindow: return .minimizeWindow
         case .minimizeWindow: return .maximizeWindow
-        case .missionControl: return .showDesktop
-        case .showDesktop: return .missionControl
         case .nextSpace: return .previousSpace
         case .previousSpace: return .nextSpace
         default: return self

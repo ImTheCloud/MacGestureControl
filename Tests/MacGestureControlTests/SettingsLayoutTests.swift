@@ -82,7 +82,9 @@ final class SettingsLayoutTests: XCTestCase {
     /// A cramped screen shrinks the scrolling area instead of overflowing.
     func testContentShrinksWithTheScreen() {
         let roomy = hostedSize(screenHeight: 985).height
-        let cramped = hostedSize(screenHeight: 700).height
+        // Small enough to clamp the content whatever is currently bound, but
+        // still above the floor, so this measures shrinking and not the floor.
+        let cramped = hostedSize(screenHeight: 500).height
         XCTAssertLessThan(cramped, roomy)
     }
 

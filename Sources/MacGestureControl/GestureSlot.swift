@@ -174,15 +174,9 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Ships with only two gestures active so nothing collides with native
-    /// macOS trackpad behaviour on a fresh install.
-    var defaultAction: GestureAction {
-        switch self {
-        case .fourFingerVertical: return .volume
-        case .fourFingerTap: return .mediaPlayPause
-        default: return .none
-        }
-    }
+    /// Nothing is bound on a fresh install: every macOS trackpad gesture keeps
+    /// working untouched until the user deliberately claims one.
+    var defaultAction: GestureAction { .none }
 
     /// Key used by `UserDefaults`.
     var storageKey: String { "slot_\(rawValue)_v6" }

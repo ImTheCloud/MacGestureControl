@@ -16,11 +16,17 @@ final class GestureRecognitionTests: XCTestCase {
         super.setUp()
         fired = []
         clock = 0
+        // An explicit configuration, so these tests describe recognition rather
+        // than whatever the app happens to ship as defaults.
+        var actions = Dictionary(uniqueKeysWithValues: GestureSlot.allCases.map { ($0, GestureAction.none) })
+        actions[.fourFingerVertical] = .volume
+        actions[.fourFingerTap] = .mediaPlayPause
+
         settings = SettingsSnapshot(
             isEnabled: true,
             invertDirection: false,
             sensitivity: 0.5,
-            actions: Dictionary(uniqueKeysWithValues: GestureSlot.allCases.map { ($0, $0.defaultAction) })
+            actions: actions
         )
 
         engine = MultitouchEngine.shared

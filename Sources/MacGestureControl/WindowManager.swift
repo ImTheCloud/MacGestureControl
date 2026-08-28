@@ -23,6 +23,16 @@ final class WindowManager {
             return
         }
 
+        if action == .closeWindow {
+            if pressCloseButton(window) {
+                announce(action, app: app)
+            } else {
+                // Nothing to press: let the caller fall back to a keystroke.
+                HUDManager.shared.show(icon: "xmark.rectangle", title: "Close Window", subtitle: app.localizedName)
+            }
+            return
+        }
+
         if action == .minimizeWindow {
             AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanTrue)
             announce(action, app: app)
@@ -111,6 +121,28 @@ final class WindowManager {
             width: size.width,
             height: size.height
         )
+    }
+
+    /// Presses the window's own close button.
+    ///
+    /// A synthesised Command-W is delivered to the frontmost app's menu, which
+    /// proved unreliable, and in a browser it closes the tab rather than the
+    /// window. Pressing the button does what the gesture's name promises.
+    @discardableResult
+    func closeFocusedWindow() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              let window = focusedWindow(of: app.processIdentifier) else { return false }
+        guard pressCloseButton(window) else { return false }
+        announce(.closeWindow, app: app)
+        return true
+    }
+
+    private func pressCloseButton(_ window: AXUIElement) -> Bool {
+        var button: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, kAXCloseButtonAttribute as CFString, &button) == .success,
+              let value = button,
+              CFGetTypeID(value) == AXUIElementGetTypeID() else { return false }
+        return AXUIElementPerformAction((value as! AXUIElement), kAXPressAction as CFString) == .success
     }
 
     private func setFrame(_ window: AXUIElement, to frame: CGRect) {
