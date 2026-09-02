@@ -43,10 +43,10 @@ enum NativeGesture: String, CaseIterable, Identifiable {
     /// What macOS does with it, phrased for the warning strip.
     var systemBehaviour: String {
         switch self {
-        case .fourFingerVerticalSwipe: return "Mission Control and App Exposé"
+        case .fourFingerVerticalSwipe: return "Mission Control and App Windows"
         case .fourFingerHorizontalSwipe: return "switching between desktops"
         case .fourFingerPinch: return "Launchpad and Show Desktop"
-        case .threeFingerVerticalSwipe: return "Mission Control and App Exposé"
+        case .threeFingerVerticalSwipe: return "Mission Control and App Windows"
         case .threeFingerHorizontalSwipe: return "switching between desktops"
         case .threeFingerTap: return "Look Up"
         }

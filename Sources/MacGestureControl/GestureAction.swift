@@ -81,12 +81,13 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
     var requiresAccessibility: Bool {
         switch self {
         case .none, .volume, .toggleMute, .toggleMicrophone, .brightness,
-             .lockScreen, .missionControl, .launchApp, .screenshot:
+             .lockScreen, .missionControl, .appExpose, .nextSpace, .previousSpace,
+             .launchApp, .screenshot:
             return false
         case .mediaPlayPause, .mediaNext, .mediaPrevious,
              .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
              .centerWindow, .minimizeWindow, .fullScreenWindow, .closeWindow,
-             .appExpose, .nextSpace, .previousSpace, .spotlight, .middleClick:
+             .spotlight, .middleClick:
             return true
         }
     }
@@ -113,7 +114,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .fullScreenWindow: return "Toggle Full Screen"
         case .closeWindow: return "Close Window"
         case .missionControl: return "Mission Control"
-        case .appExpose: return "App Exposé"
+        case .appExpose: return "App Windows"
         case .nextSpace: return "Next Desktop"
         case .previousSpace: return "Previous Desktop"
         case .screenshot: return "Screenshot to Clipboard"
@@ -145,7 +146,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .fullScreenWindow: return "Full Screen"
         case .closeWindow: return "Close Window"
         case .missionControl: return "Mission Control"
-        case .appExpose: return "App Exposé"
+        case .appExpose: return "App Windows"
         case .nextSpace: return "Next Desktop"
         case .previousSpace: return "Prev Desktop"
         case .screenshot: return "Screenshot"

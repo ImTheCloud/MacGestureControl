@@ -353,14 +353,18 @@ final class GestureRecognitionTests: XCTestCase {
     /// fired and reported as done.
     func testActionsThatSynthesiseInputAreGatedOnAccessibility() {
         let synthesised: [GestureAction] = [
-            .mediaNext, .mediaPrevious, .mediaPlayPause, .appExpose, .nextSpace,
-            .previousSpace, .spotlight, .middleClick, .snapLeft, .closeWindow
+            .mediaNext, .mediaPrevious, .mediaPlayPause,
+            .spotlight, .middleClick, .snapLeft, .closeWindow
         ]
         for action in synthesised {
             XCTAssertTrue(action.requiresAccessibility, "\(action) posts synthesised input")
         }
 
-        let direct: [GestureAction] = [.volume, .toggleMute, .brightness, .lockScreen, .missionControl, .launchApp]
+        // Desktops and the Dock overlays are asked for directly, not typed.
+        let direct: [GestureAction] = [
+            .volume, .toggleMute, .brightness, .lockScreen, .missionControl,
+            .appExpose, .nextSpace, .previousSpace, .launchApp
+        ]
         for action in direct {
             XCTAssertFalse(action.requiresAccessibility, "\(action) works without Accessibility")
         }

@@ -48,7 +48,7 @@ Every slot can be bound to any action:
 | **Display** | Screen Brightness · Lock Screen |
 | **Media** | Play / Pause · Next Track · Previous Track |
 | **Windows** | Snap Left / Right / Top / Bottom · Maximize · Center · Minimize · Toggle Full Screen · Close Window |
-| **Desktop & Spaces** | Mission Control · App Exposé · Next / Previous Desktop |
+| **Desktop & Spaces** | Mission Control · App Windows · Next / Previous Desktop |
 | **System** | Screenshot to Clipboard · Spotlight · Middle Click · Launch Application |
 
 ---

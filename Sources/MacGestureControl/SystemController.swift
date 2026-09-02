@@ -95,14 +95,21 @@ final class SystemController {
                 feedback(icon: "xmark.rectangle", title: "Close Window")
             }
         case .missionControl:
-            openSystemApp(bundleId: "com.apple.exposelauncher", icon: "rectangle.stack.fill", title: "Mission Control")
+            if DockService.shared.send(.missionControl) {
+                feedback(icon: "rectangle.stack.fill", title: "Mission Control")
+            } else {
+                openSystemApp(bundleId: "com.apple.exposelauncher", icon: "rectangle.stack.fill", title: "Mission Control")
+            }
         case .appExpose:
-            postKey(KeyCode.downArrow, flags: .maskControl)
-            feedback(icon: "square.on.square", title: "App Exposé")
+            if DockService.shared.send(.appWindows) {
+                feedback(icon: "square.on.square", title: "App Windows")
+            } else {
+                HUDManager.shared.show(icon: "exclamationmark.triangle.fill", title: "Unavailable", subtitle: "App Windows")
+            }
         case .nextSpace:
-            switchSpace(key: KeyCode.rightArrow, icon: "arrow.right.square", title: "Next Desktop")
+            switchSpace(by: 1, icon: "arrow.right.square", title: "Next Desktop")
         case .previousSpace:
-            switchSpace(key: KeyCode.leftArrow, icon: "arrow.left.square", title: "Previous Desktop")
+            switchSpace(by: -1, icon: "arrow.left.square", title: "Previous Desktop")
         case .screenshot:
             takeScreenshot()
         case .spotlight:
@@ -371,21 +378,30 @@ final class SystemController {
         }
     }
 
-    /// Control-arrow is what macOS binds to "move one space left/right", and
-    /// with only one desktop on the display in front of the user there is
-    /// nowhere for it to go — a case worth naming, because the gesture then
-    /// looks broken while the keystroke is being delivered perfectly.
-    private func switchSpace(key: CGKeyCode, icon: String, title: String) {
-        if let count = SpaceService.shared.desktopsOnActiveDisplay(), count < 2 {
+    /// Desktops are switched through the window server rather than by
+    /// synthesising Control-arrow. Measured on this machine: the keystroke is
+    /// delivered but the WindowServer ignores it — the active space does not
+    /// move even from a process macOS trusts — while asking the window server
+    /// to set the current space works immediately. Displays each keep their own
+    /// spaces, so the one in front of the user is the one that moves.
+    private func switchSpace(by offset: Int, icon: String, title: String) {
+        switch SpaceService.shared.step(by: offset) {
+        case .switched:
+            feedback(icon: icon, title: title)
+        case .atEdge:
+            HUDManager.shared.show(
+                icon: offset > 0 ? "arrow.right.to.line" : "arrow.left.to.line",
+                title: offset > 0 ? "Last Desktop" : "First Desktop"
+            )
+        case .onlyOneDesktop:
             HUDManager.shared.show(
                 icon: "rectangle.on.rectangle.slash",
                 title: "Only One Desktop",
                 subtitle: "Add another in Mission Control to switch between them"
             )
-            return
+        case .unavailable:
+            HUDManager.shared.show(icon: "exclamationmark.triangle.fill", title: "Unavailable", subtitle: title)
         }
-        postKey(key, flags: .maskControl)
-        feedback(icon: icon, title: title)
     }
 
     // MARK: - Pointer
@@ -526,51 +542,113 @@ private final class LoginServices {
 
 // MARK: - Spaces
 
-/// Read-only view of the window server's desktops, used to tell "the keystroke
-/// went nowhere" apart from "there is nowhere to go".
+/// Desktop switching through the window server, which is the only route that
+/// actually moves the active space: a synthesised Control-arrow is delivered and
+/// then ignored, whatever the app is trusted with.
 private final class SpaceService {
     static let shared = SpaceService()
+
+    enum Outcome {
+        case switched
+        case atEdge
+        case onlyOneDesktop
+        case unavailable
+    }
 
     private typealias MainConnectionID = @convention(c) () -> Int32
     private typealias GetActiveSpace = @convention(c) (Int32) -> UInt64
     private typealias CopyManagedDisplaySpaces = @convention(c) (Int32) -> Unmanaged<CFArray>?
+    private typealias SetCurrentSpace = @convention(c) (Int32, CFString, UInt64) -> Void
 
     private let connection: Int32?
     private let activeSpace: GetActiveSpace?
     private let copyDisplaySpaces: CopyManagedDisplaySpaces?
+    private let setCurrentSpace: SetCurrentSpace?
 
     private init() {
         guard let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
               let connectionSym = dlsym(handle, "SLSMainConnectionID"),
               let activeSym = dlsym(handle, "SLSGetActiveSpace"),
-              let spacesSym = dlsym(handle, "SLSCopyManagedDisplaySpaces") else {
+              let spacesSym = dlsym(handle, "SLSCopyManagedDisplaySpaces"),
+              let setSym = dlsym(handle, "SLSManagedDisplaySetCurrentSpace") else {
             connection = nil
             activeSpace = nil
             copyDisplaySpaces = nil
+            setCurrentSpace = nil
             return
         }
         connection = unsafeBitCast(connectionSym, to: MainConnectionID.self)()
         activeSpace = unsafeBitCast(activeSym, to: GetActiveSpace.self)
         copyDisplaySpaces = unsafeBitCast(spacesSym, to: CopyManagedDisplaySpaces.self)
+        setCurrentSpace = unsafeBitCast(setSym, to: SetCurrentSpace.self)
     }
 
-    /// Desktops on the display the user is currently working on, or `nil` when
-    /// the window server cannot be asked — in which case the caller should just
-    /// send the keystroke and let macOS decide. Displays keep their own spaces,
-    /// so the count that matters is the active display's, not the Mac's total.
-    func desktopsOnActiveDisplay() -> Int? {
-        guard let connection, let activeSpace, let copyDisplaySpaces,
+    /// Moves one desktop along on the display the user is working on. Like the
+    /// macOS shortcut it does not wrap around at either end.
+    func step(by offset: Int) -> Outcome {
+        guard let connection, let setCurrentSpace,
+              let display = activeDisplay(connection: connection) else { return .unavailable }
+
+        guard display.spaces.count > 1 else { return .onlyOneDesktop }
+        guard let index = display.spaces.firstIndex(of: display.current) else { return .unavailable }
+
+        let target = index + offset
+        guard display.spaces.indices.contains(target) else { return .atEdge }
+
+        setCurrentSpace(connection, display.identifier as CFString, display.spaces[target])
+        return .switched
+    }
+
+    /// The display holding the active space, with its desktops in the order
+    /// macOS arranges them — which is the order a swipe walks through.
+    private func activeDisplay(connection: Int32) -> (identifier: String, spaces: [UInt64], current: UInt64)? {
+        guard let activeSpace, let copyDisplaySpaces,
               let displays = copyDisplaySpaces(connection)?.takeRetainedValue() as? [[String: Any]] else {
             return nil
         }
 
-        let active = activeSpace(connection)
+        let current = activeSpace(connection)
         for display in displays {
-            let spaces = display["Spaces"] as? [[String: Any]] ?? []
-            let ids = spaces.compactMap { $0["id64"] as? UInt64 }
-            if ids.contains(active) { return spaces.count }
+            let spaces = (display["Spaces"] as? [[String: Any]] ?? []).compactMap { $0["id64"] as? UInt64 }
+            guard spaces.contains(current), let identifier = display["Display Identifier"] as? String else { continue }
+            return (identifier, spaces, current)
         }
         return nil
+    }
+}
+
+// MARK: - Dock
+
+/// Mission Control and App Windows are the Dock's to open, and it listens for
+/// them on a notification — the same one the hardware keys end up sending.
+/// Control-arrow and Control-down never arrive as synthesised events.
+private final class DockService {
+    static let shared = DockService()
+
+    enum Command: String {
+        case missionControl = "com.apple.expose.awake"
+        case appWindows = "com.apple.expose.front.awake"
+    }
+
+    private typealias SendNotification = @convention(c) (CFString, Int32) -> Void
+    private let send: SendNotification?
+
+    private init() {
+        guard let handle = dlopen("/System/Library/Frameworks/Carbon.framework/Carbon", RTLD_LAZY),
+              let symbol = dlsym(handle, "CoreDockSendNotification") else {
+            send = nil
+            return
+        }
+        self.send = unsafeBitCast(symbol, to: SendNotification.self)
+    }
+
+    /// `false` when the Dock cannot be reached, so the caller can say so
+    /// instead of showing an overlay for something that did not happen.
+    @discardableResult
+    func send(_ command: Command) -> Bool {
+        guard let send else { return false }
+        send(command.rawValue as CFString, 0)
+        return true
     }
 }
 
