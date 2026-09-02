@@ -87,7 +87,16 @@ struct SettingsView: View {
                 .padding(.vertical, 10)
         }
         .frame(width: SettingsMetrics.width)
-        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
+        // Vibrancy alone let a bright window behind the popover shine through
+        // and wash the tinted controls out, so the blur sits on an opaque
+        // ground: the frosted look survives, the contrast stops depending on
+        // whatever happens to be on screen underneath.
+        .background(
+            ZStack {
+                VisualEffectView(material: .popover, blendingMode: .behindWindow)
+                Color(nsColor: .windowBackgroundColor).opacity(0.82)
+            }
+        )
     }
 
     /// The tab's own height, never shorter than a sliver and never taller than
@@ -591,11 +600,18 @@ struct SettingsView: View {
             .padding(.vertical, 4)
             .frame(width: Row.controlWidth, alignment: .trailing)
             .background(
+                // The tint rides on an opaque control colour rather than on the
+                // popover's blur: a 12% blue over a light window read as almost
+                // nothing, whatever the theme.
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isAssigned ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
+                    .fill(Color(nsColor: .controlBackgroundColor))
                     .overlay(
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(isAssigned ? Color.accentColor.opacity(0.35) : Color.primary.opacity(0.08), lineWidth: 0.8)
+                            .fill(isAssigned ? Color.accentColor.opacity(0.20) : Color.primary.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(isAssigned ? Color.accentColor.opacity(0.55) : Color.primary.opacity(0.12), lineWidth: 0.8)
                     )
             )
             .foregroundColor(isAssigned ? .accentColor : .secondary)
