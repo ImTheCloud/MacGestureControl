@@ -108,10 +108,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Accessibility permission
 
+    /// Asks once, ever.
+    ///
+    /// The prompting form of the check is onboarding, not a status query: macOS
+    /// puts the dialog in front of *every* launch of an app it does not trust.
+    /// An app that starts at login and asks each time therefore turns into a
+    /// dialog that comes back for the rest of the user's life — every login,
+    /// every relaunch. After the first ask it is the banner in the popover that
+    /// carries the message, and the silent check keeps it honest.
     private func requestAccessibilityPermission() {
+        guard !UserDefaults.standard.bool(forKey: Self.didAskForAccessibility) else { return }
+        UserDefaults.standard.set(true, forKey: Self.didAskForAccessibility)
+
         let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
     }
+
+    private static let didAskForAccessibility = "app_didAskForAccessibility_v6"
 
     /// macOS gives no notification when the user grants access, so the state is
     /// polled cheaply to keep the banner in the popover accurate.
