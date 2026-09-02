@@ -106,7 +106,14 @@ final class SystemController {
     private func adjustVolume(up: Bool) {
         guard let device = defaultOutputDevice(), let current = outputVolume(of: device) else { return }
 
-        let target = max(0, min(1, current + (up ? volumeStep : -volumeStep)))
+        var target = max(0, min(1, current + (up ? volumeStep : -volumeStep)))
+
+        // Outputs do not report round numbers: this USB device answers
+        // 0.125434 for what should be two sixteenths, so stepping down lands
+        // just above zero rather than on it — and just above zero is still
+        // audible. Anything within half a step of silence is silence.
+        if !up, target < volumeStep / 2 { target = 0 }
+
         setOutputVolume(target, on: device)
 
         // Raising the volume on a muted output should be audible.
@@ -199,12 +206,48 @@ final class SystemController {
         return deviceID
     }
 
-    private var volumeAddress: AudioObjectPropertyAddress {
+    /// Where a device's level control actually lives.
+    ///
+    /// Not every output has a main volume: this Mac's USB output carries one
+    /// per channel and lets the system emulate a main one on top. Writing
+    /// through that emulation does not stick — measured, a step down from
+    /// 0.125434 came back as 0.125434 two steps later — while the channels take
+    /// the value they are handed, 0.0 included. So the channels are used
+    /// whenever they exist, and the emulation only when nothing else does.
+    private enum VolumeControl {
+        case channels([AudioObjectPropertyElement])
+        case virtualMain
+        case unavailable
+    }
+
+    private func channelVolumeAddress(element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: element
+        )
+    }
+
+    private var virtualVolumeAddress: AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
             mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
+    }
+
+    private func volumeControl(of device: AudioObjectID) -> VolumeControl {
+        var main = channelVolumeAddress(element: kAudioObjectPropertyElementMain)
+        if AudioObjectHasProperty(device, &main) { return .channels([kAudioObjectPropertyElementMain]) }
+
+        let channels = stereoChannels(of: device, scope: kAudioDevicePropertyScopeOutput).filter { element in
+            var address = channelVolumeAddress(element: element)
+            return AudioObjectHasProperty(device, &address)
+        }
+        if !channels.isEmpty { return .channels(channels) }
+
+        var virtual = virtualVolumeAddress
+        return AudioObjectHasProperty(device, &virtual) ? .virtualMain : .unavailable
     }
 
     private func muteAddress(element: AudioObjectPropertyElement, scope: AudioObjectPropertyScope) -> AudioObjectPropertyAddress {
@@ -244,21 +287,42 @@ final class SystemController {
     }
 
     private func outputVolume(of device: AudioObjectID) -> Float32? {
-        var address = volumeAddress
-        guard AudioObjectHasProperty(device, &address) else { return nil }
-        var volume: Float32 = 0
-        var size = UInt32(MemoryLayout<Float32>.size)
-        let status = AudioObjectGetPropertyData(device, &address, 0, nil, &size, &volume)
-        guard status == noErr else { return nil }
-        return volume
+        let addresses: [AudioObjectPropertyAddress]
+        switch volumeControl(of: device) {
+        case .channels(let elements): addresses = elements.map(channelVolumeAddress(element:))
+        case .virtualMain: addresses = [virtualVolumeAddress]
+        case .unavailable: return nil
+        }
+
+        let levels = addresses.compactMap { address -> Float32? in
+            var address = address
+            var volume: Float32 = 0
+            var size = UInt32(MemoryLayout<Float32>.size)
+            guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &volume) == noErr else { return nil }
+            return volume
+        }
+        guard !levels.isEmpty else { return nil }
+
+        // Channels can sit at slightly different levels; the mean is what the
+        // user thinks of as "the volume".
+        return levels.reduce(0, +) / Float32(levels.count)
     }
 
     private func setOutputVolume(_ volume: Float32, on device: AudioObjectID) {
-        var address = volumeAddress
-        var settable: DarwinBoolean = false
-        guard AudioObjectIsPropertySettable(device, &address, &settable) == noErr, settable.boolValue else { return }
-        var value = volume
-        AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &value)
+        let addresses: [AudioObjectPropertyAddress]
+        switch volumeControl(of: device) {
+        case .channels(let elements): addresses = elements.map(channelVolumeAddress(element:))
+        case .virtualMain: addresses = [virtualVolumeAddress]
+        case .unavailable: return
+        }
+
+        for address in addresses {
+            var address = address
+            var settable: DarwinBoolean = false
+            guard AudioObjectIsPropertySettable(device, &address, &settable) == noErr, settable.boolValue else { continue }
+            var value = volume
+            AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &value)
+        }
     }
 
     /// `nil` when the device exposes no mute control at all.
