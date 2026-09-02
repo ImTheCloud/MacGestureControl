@@ -75,11 +75,11 @@ final class SystemController {
         case .lockScreen:
             lockScreen()
         case .mediaPlayPause:
-            postMediaKey(.playPause, icon: "playpause.fill", title: "Play / Pause")
+            mediaCommand(.playPause, icon: "playpause.fill", title: "Play / Pause")
         case .mediaNext:
-            postMediaKey(.next, icon: "forward.fill", title: "Next Track")
+            mediaCommand(.next, icon: "forward.fill", title: "Next Track")
         case .mediaPrevious:
-            postMediaKey(.previous, icon: "backward.fill", title: "Previous Track")
+            mediaCommand(.previous, icon: "backward.fill", title: "Previous Track")
         case .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
              .centerWindow, .minimizeWindow, .fullScreenWindow:
             WindowManager.shared.perform(action)
@@ -142,7 +142,8 @@ final class SystemController {
               let muted = isMuted(device),
               setMuted(!muted, on: device) else {
             // No usable mute control: let the system handle it with its own key.
-            postMediaKey(.mute, icon: "speaker.slash.fill", title: "Mute")
+            postMediaKey(.mute)
+            feedback(icon: "speaker.slash.fill", title: "Mute")
             return
         }
 
@@ -383,7 +384,65 @@ final class SystemController {
 
     // MARK: - Media
 
-    private func postMediaKey(_ key: MediaKey, icon: String, title: String) {
+    /// A media key goes to whichever app holds the Now Playing session. When
+    /// nothing holds it, macOS answers by opening Music — which is rarely what
+    /// someone with Spotify in the dock wants. In that case, and only then, the
+    /// command is addressed to the chosen app instead.
+    private func mediaCommand(_ key: MediaKey, icon: String, title: String) {
+        feedback(icon: icon, title: title)
+
+        let target = AppSettings.shared.mediaTargetBundleId
+        guard !target.isEmpty else {
+            postMediaKey(key)
+            return
+        }
+
+        NowPlaying.shared.hasSession { [weak self] playing in
+            guard let self else { return }
+            if playing {
+                self.postMediaKey(key)
+            } else {
+                self.send(key, to: target)
+            }
+        }
+    }
+
+    /// Both Spotify and Music understand these; an app that does not simply
+    /// gets opened, which still beats opening Music.
+    private func send(_ key: MediaKey, to bundleId: String) {
+        let command: String
+        switch key {
+        case .playPause: command = "playpause"
+        case .next: command = "next track"
+        case .previous: command = "previous track"
+        case .mute: command = ""
+        }
+        guard !command.isEmpty else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            task.arguments = ["-e", "tell application id \"\(bundleId)\" to \(command)"]
+            task.standardError = Pipe()
+            do {
+                try task.run()
+                task.waitUntilExit()
+                guard task.terminationStatus != 0 else { return }
+            } catch {
+                NSLog("[SystemController] osascript failed: \(error.localizedDescription)")
+            }
+
+            // Refused Automation access, or an app that speaks no AppleScript.
+            DispatchQueue.main.async { self.openApp(bundleId: bundleId) }
+        }
+    }
+
+    private func openApp(bundleId: String) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    private func postMediaKey(_ key: MediaKey) {
         for isDown in [true, false] {
             let flags = NSEvent.ModifierFlags(rawValue: isDown ? 0xA00 : 0xB00)
             let data1 = Int((key.rawValue << 16) | ((isDown ? 0xA : 0xB) << 8))
@@ -400,7 +459,6 @@ final class SystemController {
             ) else { continue }
             event.cgEvent?.post(tap: .cghidEventTap)
         }
-        feedback(icon: icon, title: title)
     }
 
     // MARK: - Display & session
@@ -535,6 +593,37 @@ private final class LoginServices {
     func lockScreen() -> Bool {
         guard let lock else { return false }
         return lock() == 0
+    }
+}
+
+// MARK: - Now Playing
+
+/// Asks the system whether any app currently holds the Now Playing session.
+private final class NowPlaying {
+    static let shared = NowPlaying()
+
+    private typealias GetApplicationPID = @convention(c) (DispatchQueue, @escaping (Int32) -> Void) -> Void
+    private let getPID: GetApplicationPID?
+
+    private init() {
+        guard let handle = dlopen("/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote", RTLD_LAZY),
+              let symbol = dlsym(handle, "MRMediaRemoteGetNowPlayingApplicationPID") else {
+            getPID = nil
+            return
+        }
+        getPID = unsafeBitCast(symbol, to: GetApplicationPID.self)
+    }
+
+    /// Answers `true` when a session exists — and when the question cannot be
+    /// asked at all, so an unavailable framework leaves the media key alone.
+    func hasSession(_ completion: @escaping (Bool) -> Void) {
+        guard let getPID else {
+            completion(true)
+            return
+        }
+        getPID(DispatchQueue.main) { pid in
+            completion(pid > 0 && NSRunningApplication(processIdentifier: pid) != nil)
+        }
     }
 }
 

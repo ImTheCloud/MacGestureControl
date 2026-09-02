@@ -339,6 +339,11 @@ struct SettingsView: View {
                     }
                 }
 
+                if settings.usesMediaAction {
+                    rowDivider
+                    mediaTargetRow
+                }
+
                 if settings.usesLaunchApp {
                     rowDivider
                     launchTargetRow
@@ -368,6 +373,70 @@ struct SettingsView: View {
         case ..<0.67: return "Medium"
         default: return "High"
         }
+    }
+
+    /// Which app a media gesture wakes when nothing is playing — macOS answers
+    /// that question with Music, and there is no system setting for it.
+    private var mediaTargetRow: some View {
+        settingRow(icon: "music.note.list", title: "Media App") {
+            Menu {
+                Button("System Default") { settings.mediaTargetBundleId = "" }
+                ForEach(knownMediaApps, id: \.id) { app in
+                    Button(app.name) { settings.mediaTargetBundleId = app.id }
+                }
+                Divider()
+                Button("Choose…") { chooseMediaTarget() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(mediaTargetName)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 7.5))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(width: Row.controlWidth, alignment: .trailing)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.accentColor.opacity(0.20))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(Color.accentColor.opacity(0.55), lineWidth: 0.8)
+                        )
+                )
+                .foregroundColor(.accentColor)
+                .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+        }
+    }
+
+    /// The two players that answer a media command out of the box, when installed.
+    private var knownMediaApps: [(id: String, name: String)] {
+        [("com.spotify.client", "Spotify"), ("com.apple.Music", "Music")].filter {
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.0) != nil
+        }.map { (id: $0.0, name: $0.1) }
+    }
+
+    private var mediaTargetName: String {
+        guard !settings.mediaTargetBundleId.isEmpty else { return "System Default" }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: settings.mediaTargetBundleId) else {
+            return "Choose…"
+        }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+
+    private func chooseMediaTarget() {
+        guard let bundleId = chooseApplication() else { return }
+        settings.mediaTargetBundleId = bundleId
     }
 
     private var launchTargetRow: some View {
@@ -408,6 +477,12 @@ struct SettingsView: View {
     }
 
     private func chooseLaunchTarget() {
+        guard let bundleId = chooseApplication() else { return }
+        settings.launchTargetBundleId = bundleId
+    }
+
+    /// Asks for an application and answers with its bundle identifier.
+    private func chooseApplication() -> String? {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.allowsMultipleSelection = false
@@ -420,8 +495,8 @@ struct SettingsView: View {
 
         guard panel.runModal() == .OK,
               let url = panel.url,
-              let bundleId = Bundle(url: url)?.bundleIdentifier else { return }
-        settings.launchTargetBundleId = bundleId
+              let bundleId = Bundle(url: url)?.bundleIdentifier else { return nil }
+        return bundleId
     }
 
     // MARK: - Gesture tabs

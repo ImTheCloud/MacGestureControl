@@ -1,5 +1,5 @@
 // AppSettings.swift
-import Foundation
+import AppKit
 import Combine
 
 /// Immutable copy of everything the realtime multitouch thread needs.
@@ -37,6 +37,9 @@ final class AppSettings: ObservableObject {
     @Published var invertDirection: Bool { didSet { defaults.set(invertDirection, forKey: Keys.invertDirection); refreshSnapshot() } }
     @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Keys.sensitivity); refreshSnapshot() } }
     @Published var launchTargetBundleId: String { didSet { defaults.set(launchTargetBundleId, forKey: Keys.launchTarget) } }
+    /// Which app takes a media action when nothing is playing. Empty means the
+    /// key goes to the system, which opens Music.
+    @Published var mediaTargetBundleId: String { didSet { defaults.set(mediaTargetBundleId, forKey: Keys.mediaTarget) } }
 
     // MARK: - Gesture bindings
     @Published private(set) var actions: [GestureSlot: GestureAction]
@@ -59,6 +62,7 @@ final class AppSettings: ObservableObject {
         static let invertDirection = "app_invertDirection_v6"
         static let sensitivity = "app_sensitivity_v6"
         static let launchTarget = "app_launchTarget_v6"
+        static let mediaTarget = "app_mediaTarget_v6"
     }
 
     /// The app's glyph, used by the menu bar item and the popover header.
@@ -71,6 +75,10 @@ final class AppSettings: ObservableObject {
         invertDirection = defaults.object(forKey: Keys.invertDirection) as? Bool ?? false
         sensitivity = defaults.object(forKey: Keys.sensitivity) as? Double ?? 0.5
         launchTargetBundleId = defaults.string(forKey: Keys.launchTarget) ?? "com.apple.Notes"
+        // Spotify if it is installed, because the alternative is macOS opening
+        // Music at the first press. An empty value means "leave it to macOS",
+        // and a stored empty value stays empty.
+        mediaTargetBundleId = defaults.string(forKey: Keys.mediaTarget) ?? AppSettings.defaultMediaApp()
 
         var loaded: [GestureSlot: GestureAction] = [:]
         for slot in GestureSlot.allCases {
@@ -105,12 +113,22 @@ final class AppSettings: ObservableObject {
         actions.values.contains(.launchApp)
     }
 
+    var usesMediaAction: Bool {
+        actions.values.contains { $0 == .mediaPlayPause || $0 == .mediaNext || $0 == .mediaPrevious }
+    }
+
+    private static func defaultMediaApp() -> String {
+        let spotify = "com.spotify.client"
+        return NSWorkspace.shared.urlForApplication(withBundleIdentifier: spotify) != nil ? spotify : ""
+    }
+
     // MARK: - Reset
     func resetToDefaults() {
         for slot in GestureSlot.allCases {
             setAction(slot.defaultAction, for: slot)
         }
         sensitivity = 0.5
+        mediaTargetBundleId = AppSettings.defaultMediaApp()
         invertDirection = false
         hapticsEnabled = true
         showHUD = true
