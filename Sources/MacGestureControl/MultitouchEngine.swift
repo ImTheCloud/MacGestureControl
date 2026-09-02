@@ -379,8 +379,8 @@ final class MultitouchEngine: ObservableObject {
     /// How far the fingers themselves have travelled since they landed.
     ///
     /// The centroid cannot answer that: it is re-anchored every time the finger
-    /// count changes and ignored during the settle window, so a quick two-finger
-    /// flick — fingers down, scroll, up, all inside 150 ms — used to reach
+    /// count changes and ignored during the settle window, so a quick flick —
+    /// fingers down, scroll, up, all inside 150 ms — used to reach
     /// lift-off with a drift of zero and be reported as a tap. Each contact
     /// keeps its own landing point instead, which no re-anchoring touches.
     private func trackFingerDrift(_ touches: [MTTouch]) {

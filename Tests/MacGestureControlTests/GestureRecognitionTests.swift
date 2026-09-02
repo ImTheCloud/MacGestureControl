@@ -127,32 +127,32 @@ final class GestureRecognitionTests: XCTestCase {
         XCTAssertTrue(fired.isEmpty, "resting four fingers must not trigger play/pause")
     }
 
-    /// The reported bug: the two-finger action firing at random through the day.
-    /// A quick scroll flick — fingers down, sideways, up, all inside 150 ms —
-    /// never outlives the settle window, so the centroid it used to be judged on
-    /// had not moved by the time the fingers left and it was read as a tap.
-    func testQuickTwoFingerFlickIsNotATap() {
-        settings.actions[.twoFingerTap] = .appExpose
+    /// The reported bug: a tap action firing at random through the day. A quick
+    /// scroll flick — fingers down, sideways, up, all inside 150 ms — never
+    /// outlives the settle window, so the centroid it used to be judged on had
+    /// not moved by the time the fingers left and it was read as a tap.
+    func testQuickFlickIsNotATap() {
+        settings.actions[.threeFingerTap] = .spotlight
 
-        send(steadyHand([0, 1]))
+        send(steadyHand([0, 1, 2]))
         for step in 1...12 {
             let offset = Float(step) * 0.012
-            send([touch(0, 0.32, 0.5 - offset), touch(1, 0.41, 0.5 - offset)])
+            send([touch(0, 0.32, 0.5 - offset), touch(1, 0.41, 0.5 - offset), touch(2, 0.50, 0.5 - offset)])
         }
         send([])
 
-        XCTAssertTrue(fired.isEmpty, "a two-finger scroll flick fired \(fired.map(\.slot))")
+        XCTAssertTrue(fired.isEmpty, "a scroll flick fired \(fired.map(\.slot))")
     }
 
-    func testDeliberateTwoFingerTapStillFires() {
-        settings.actions[.twoFingerTap] = .appExpose
+    func testDeliberateTapStillFires() {
+        settings.actions[.threeFingerTap] = .spotlight
 
-        send(steadyHand([0]))
-        hold(0.08, steadyHand([0, 1]))
-        send(steadyHand([1]))
+        send(steadyHand([0, 1]))
+        hold(0.08, steadyHand([0, 1, 2]))
+        send(steadyHand([1, 2]))
         send([])
 
-        XCTAssertEqual(fired.map(\.slot), [.twoFingerTap])
+        XCTAssertEqual(fired.map(\.slot), [.threeFingerTap])
     }
 
     func testThreeFingerTapUsesItsOwnBinding() {
@@ -252,7 +252,7 @@ final class GestureRecognitionTests: XCTestCase {
     // MARK: - Pinch
 
     func testPinchFiresOnceAndBlocksTheTap() {
-        settings.actions[.fourFingerPinchIn] = .missionControl
+        settings.actions[.fourFingerPinchIn] = .spotlight
         hold(0.15, hand(count: 4, centreX: 0.5, centreY: 0.5))
         // Collapse the hand towards its centre.
         for step in 1...20 {
@@ -267,12 +267,14 @@ final class GestureRecognitionTests: XCTestCase {
 
         XCTAssertEqual(fired.count, 1)
         XCTAssertEqual(fired.first?.slot, .fourFingerPinchIn)
-        XCTAssertEqual(fired.first?.action, .missionControl)
+        XCTAssertEqual(fired.first?.action, .spotlight)
     }
 
-    func testTwoFingerPinchIsLeftToMacOS() {
-        // Zoom is a native two-finger gesture and has no slot of its own.
-        XCTAssertNil(GestureSlot.allCases.first { $0.kind == .pinchIn && $0.fingerCount == 2 })
+    func testTwoFingerGesturesAreLeftToMacOS() {
+        // Two fingers belong to macOS: swiping is scrolling, a tap is a
+        // secondary click, pinching is zoom. None of it can be switched off, so
+        // the app offers no two-finger slot to bind against it.
+        XCTAssertTrue(GestureSlot.allCases.allSatisfy { $0.fingerCount != 2 })
     }
 
     // MARK: - Corner taps
@@ -360,11 +362,7 @@ final class GestureRecognitionTests: XCTestCase {
             XCTAssertTrue(action.requiresAccessibility, "\(action) posts synthesised input")
         }
 
-        // Desktops and the Dock overlays are asked for directly, not typed.
-        let direct: [GestureAction] = [
-            .volume, .toggleMute, .brightness, .lockScreen, .missionControl,
-            .appExpose, .nextSpace, .previousSpace, .launchApp
-        ]
+        let direct: [GestureAction] = [.volume, .toggleMute, .brightness, .lockScreen, .launchApp]
         for action in direct {
             XCTAssertFalse(action.requiresAccessibility, "\(action) works without Accessibility")
         }

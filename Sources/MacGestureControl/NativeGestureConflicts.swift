@@ -193,10 +193,6 @@ extension GestureSlot {
     /// A collision macOS offers no setting for, so it can only be explained.
     var unavoidableConflict: String? {
         switch self {
-        case .twoFingerVertical, .twoFingerHorizontal:
-            return "Two-finger swiping is scrolling, which macOS cannot turn off — the page will still scroll."
-        case .twoFingerTap:
-            return "macOS also reads a two-finger tap as a secondary click."
         case .cornerTopLeft, .cornerTopRight, .cornerBottomLeft, .cornerBottomRight:
             return "With “tap to click” on, a corner tap also clicks wherever the pointer is."
         default:

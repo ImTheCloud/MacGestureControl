@@ -7,9 +7,6 @@ import AudioToolbox
 /// Virtual key codes used by the keyboard-driven actions.
 private enum KeyCode {
     static let space: CGKeyCode = 49
-    static let leftArrow: CGKeyCode = 123
-    static let rightArrow: CGKeyCode = 124
-    static let downArrow: CGKeyCode = 125
     static let brightnessDown: CGKeyCode = 145
     static let brightnessUp: CGKeyCode = 144
     static let command: CGKeyCode = 55
@@ -94,22 +91,6 @@ final class SystemController {
                 postCharacter("w", flags: .maskCommand)
                 feedback(icon: "xmark.rectangle", title: "Close Window")
             }
-        case .missionControl:
-            if DockService.shared.send(.missionControl) {
-                feedback(icon: "rectangle.stack.fill", title: "Mission Control")
-            } else {
-                openSystemApp(bundleId: "com.apple.exposelauncher", icon: "rectangle.stack.fill", title: "Mission Control")
-            }
-        case .appExpose:
-            if DockService.shared.send(.appWindows) {
-                feedback(icon: "square.on.square", title: "App Windows")
-            } else {
-                HUDManager.shared.show(icon: "exclamationmark.triangle.fill", title: "Unavailable", subtitle: "App Windows")
-            }
-        case .nextSpace:
-            switchSpace(by: 1, icon: "arrow.right.square", title: "Next Desktop")
-        case .previousSpace:
-            switchSpace(by: -1, icon: "arrow.left.square", title: "Previous Desktop")
         case .screenshot:
             takeScreenshot()
         case .spotlight:
@@ -369,38 +350,13 @@ final class SystemController {
         HapticManager.shared.triggerClick()
         HUDManager.shared.show(icon: "camera.fill", title: "Screenshot", subtitle: "Select an area — copied to clipboard")
 
-        // A gesture can carry a click of its own: macOS reads a two-finger tap
-        // as a secondary click. That click lands in screencapture's crosshair
-        // as an empty selection and cancels it, so let it finish first.
+        // A gesture can carry a click of its own: with "tap to click" on, a
+        // corner tap also clicks wherever the pointer is. That click lands in
+        // screencapture's crosshair as an empty selection and cancels it, so
+        // let it finish first.
         DispatchQueue.main.asyncAfter(deadline: .now() + screenshotClickSettleDelay) {
             // Interactive area selection, straight to the clipboard.
             self.runTool("/usr/sbin/screencapture", arguments: ["-i", "-c"])
-        }
-    }
-
-    /// Desktops are switched through the window server rather than by
-    /// synthesising Control-arrow. Measured on this machine: the keystroke is
-    /// delivered but the WindowServer ignores it — the active space does not
-    /// move even from a process macOS trusts — while asking the window server
-    /// to set the current space works immediately. Displays each keep their own
-    /// spaces, so the one in front of the user is the one that moves.
-    private func switchSpace(by offset: Int, icon: String, title: String) {
-        switch SpaceService.shared.step(by: offset) {
-        case .switched:
-            feedback(icon: icon, title: title)
-        case .atEdge:
-            HUDManager.shared.show(
-                icon: offset > 0 ? "arrow.right.to.line" : "arrow.left.to.line",
-                title: offset > 0 ? "Last Desktop" : "First Desktop"
-            )
-        case .onlyOneDesktop:
-            HUDManager.shared.show(
-                icon: "rectangle.on.rectangle.slash",
-                title: "Only One Desktop",
-                subtitle: "Add another in Mission Control to switch between them"
-            )
-        case .unavailable:
-            HUDManager.shared.show(icon: "exclamationmark.triangle.fill", title: "Unavailable", subtitle: title)
         }
     }
 
@@ -422,15 +378,6 @@ final class SystemController {
     }
 
     // MARK: - Apps
-
-    private func openSystemApp(bundleId: String, icon: String, title: String) {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) else {
-            HUDManager.shared.show(icon: "exclamationmark.triangle.fill", title: "Unavailable", subtitle: title)
-            return
-        }
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
-        feedback(icon: icon, title: title)
-    }
 
     private func launchApp(bundleId: String) {
         guard !bundleId.isEmpty,
@@ -456,8 +403,7 @@ final class SystemController {
     ///
     /// The modifiers are pressed and released as real key events rather than
     /// only set as flags on the keystroke. Applications accept the flags alone,
-    /// but the system-wide shortcuts — Spotlight, Mission Control, switching
-    /// desktops — ignore them.
+    /// but system-wide shortcuts such as Spotlight ignore them.
     private func postKey(_ key: CGKeyCode, flags: CGEventFlags = []) {
         let source = CGEventSource(stateID: .hidSystemState)
 
@@ -537,118 +483,6 @@ private final class LoginServices {
     func lockScreen() -> Bool {
         guard let lock else { return false }
         return lock() == 0
-    }
-}
-
-// MARK: - Spaces
-
-/// Desktop switching through the window server, which is the only route that
-/// actually moves the active space: a synthesised Control-arrow is delivered and
-/// then ignored, whatever the app is trusted with.
-private final class SpaceService {
-    static let shared = SpaceService()
-
-    enum Outcome {
-        case switched
-        case atEdge
-        case onlyOneDesktop
-        case unavailable
-    }
-
-    private typealias MainConnectionID = @convention(c) () -> Int32
-    private typealias GetActiveSpace = @convention(c) (Int32) -> UInt64
-    private typealias CopyManagedDisplaySpaces = @convention(c) (Int32) -> Unmanaged<CFArray>?
-    private typealias SetCurrentSpace = @convention(c) (Int32, CFString, UInt64) -> Void
-
-    private let connection: Int32?
-    private let activeSpace: GetActiveSpace?
-    private let copyDisplaySpaces: CopyManagedDisplaySpaces?
-    private let setCurrentSpace: SetCurrentSpace?
-
-    private init() {
-        guard let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
-              let connectionSym = dlsym(handle, "SLSMainConnectionID"),
-              let activeSym = dlsym(handle, "SLSGetActiveSpace"),
-              let spacesSym = dlsym(handle, "SLSCopyManagedDisplaySpaces"),
-              let setSym = dlsym(handle, "SLSManagedDisplaySetCurrentSpace") else {
-            connection = nil
-            activeSpace = nil
-            copyDisplaySpaces = nil
-            setCurrentSpace = nil
-            return
-        }
-        connection = unsafeBitCast(connectionSym, to: MainConnectionID.self)()
-        activeSpace = unsafeBitCast(activeSym, to: GetActiveSpace.self)
-        copyDisplaySpaces = unsafeBitCast(spacesSym, to: CopyManagedDisplaySpaces.self)
-        setCurrentSpace = unsafeBitCast(setSym, to: SetCurrentSpace.self)
-    }
-
-    /// Moves one desktop along on the display the user is working on. Like the
-    /// macOS shortcut it does not wrap around at either end.
-    func step(by offset: Int) -> Outcome {
-        guard let connection, let setCurrentSpace,
-              let display = activeDisplay(connection: connection) else { return .unavailable }
-
-        guard display.spaces.count > 1 else { return .onlyOneDesktop }
-        guard let index = display.spaces.firstIndex(of: display.current) else { return .unavailable }
-
-        let target = index + offset
-        guard display.spaces.indices.contains(target) else { return .atEdge }
-
-        setCurrentSpace(connection, display.identifier as CFString, display.spaces[target])
-        return .switched
-    }
-
-    /// The display holding the active space, with its desktops in the order
-    /// macOS arranges them — which is the order a swipe walks through.
-    private func activeDisplay(connection: Int32) -> (identifier: String, spaces: [UInt64], current: UInt64)? {
-        guard let activeSpace, let copyDisplaySpaces,
-              let displays = copyDisplaySpaces(connection)?.takeRetainedValue() as? [[String: Any]] else {
-            return nil
-        }
-
-        let current = activeSpace(connection)
-        for display in displays {
-            let spaces = (display["Spaces"] as? [[String: Any]] ?? []).compactMap { $0["id64"] as? UInt64 }
-            guard spaces.contains(current), let identifier = display["Display Identifier"] as? String else { continue }
-            return (identifier, spaces, current)
-        }
-        return nil
-    }
-}
-
-// MARK: - Dock
-
-/// Mission Control and App Windows are the Dock's to open, and it listens for
-/// them on a notification — the same one the hardware keys end up sending.
-/// Control-arrow and Control-down never arrive as synthesised events.
-private final class DockService {
-    static let shared = DockService()
-
-    enum Command: String {
-        case missionControl = "com.apple.expose.awake"
-        case appWindows = "com.apple.expose.front.awake"
-    }
-
-    private typealias SendNotification = @convention(c) (CFString, Int32) -> Void
-    private let send: SendNotification?
-
-    private init() {
-        guard let handle = dlopen("/System/Library/Frameworks/Carbon.framework/Carbon", RTLD_LAZY),
-              let symbol = dlsym(handle, "CoreDockSendNotification") else {
-            send = nil
-            return
-        }
-        self.send = unsafeBitCast(symbol, to: SendNotification.self)
-    }
-
-    /// `false` when the Dock cannot be reached, so the caller can say so
-    /// instead of showing an overlay for something that did not happen.
-    @discardableResult
-    func send(_ command: Command) -> Bool {
-        guard let send else { return false }
-        send(command.rawValue as CFString, 0)
-        return true
     }
 }
 

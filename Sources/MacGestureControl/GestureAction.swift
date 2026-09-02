@@ -8,7 +8,6 @@ enum ActionCategory: String, CaseIterable, Identifiable {
     case display = "Display"
     case media = "Media"
     case windows = "Windows"
-    case desktop = "Desktop & Spaces"
     case system = "System"
 
     var id: String { rawValue }
@@ -42,12 +41,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
     case fullScreenWindow = "fullscreen_window"
     case closeWindow = "close_window"
 
-    // Desktop & Spaces
-    case missionControl = "mission_control"
-    case appExpose = "app_expose"
-    case nextSpace = "next_space"
-    case previousSpace = "previous_space"
-
     // System
     case screenshot = "screenshot"
     case spotlight = "spotlight"
@@ -67,8 +60,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
              .centerWindow, .minimizeWindow, .fullScreenWindow, .closeWindow:
             return .windows
-        case .missionControl, .appExpose, .nextSpace, .previousSpace:
-            return .desktop
         case .screenshot, .spotlight, .middleClick, .launchApp, .none:
             return .system
         }
@@ -81,8 +72,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
     var requiresAccessibility: Bool {
         switch self {
         case .none, .volume, .toggleMute, .toggleMicrophone, .brightness,
-             .lockScreen, .missionControl, .appExpose, .nextSpace, .previousSpace,
-             .launchApp, .screenshot:
+             .lockScreen, .launchApp, .screenshot:
             return false
         case .mediaPlayPause, .mediaNext, .mediaPrevious,
              .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
@@ -113,10 +103,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .minimizeWindow: return "Minimize Window"
         case .fullScreenWindow: return "Toggle Full Screen"
         case .closeWindow: return "Close Window"
-        case .missionControl: return "Mission Control"
-        case .appExpose: return "App Windows"
-        case .nextSpace: return "Next Desktop"
-        case .previousSpace: return "Previous Desktop"
         case .screenshot: return "Screenshot to Clipboard"
         case .spotlight: return "Spotlight Search"
         case .middleClick: return "Middle Click"
@@ -145,10 +131,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .minimizeWindow: return "Minimize"
         case .fullScreenWindow: return "Full Screen"
         case .closeWindow: return "Close Window"
-        case .missionControl: return "Mission Control"
-        case .appExpose: return "App Windows"
-        case .nextSpace: return "Next Desktop"
-        case .previousSpace: return "Prev Desktop"
         case .screenshot: return "Screenshot"
         case .spotlight: return "Spotlight"
         case .middleClick: return "Middle Click"
@@ -176,10 +158,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .minimizeWindow: return "minus.rectangle"
         case .fullScreenWindow: return "arrow.up.left.and.arrow.down.right.rectangle"
         case .closeWindow: return "xmark.rectangle"
-        case .missionControl: return "rectangle.stack.fill"
-        case .appExpose: return "square.on.square"
-        case .nextSpace: return "arrow.right.square"
-        case .previousSpace: return "arrow.left.square"
         case .screenshot: return "camera.fill"
         case .spotlight: return "magnifyingglass"
         case .middleClick: return "computermouse.fill"
@@ -208,8 +186,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .snapBottom: return .snapTop
         case .maximizeWindow: return .minimizeWindow
         case .minimizeWindow: return .maximizeWindow
-        case .nextSpace: return .previousSpace
-        case .previousSpace: return .nextSpace
         default: return self
         }
     }

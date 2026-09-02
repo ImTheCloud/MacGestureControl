@@ -20,8 +20,9 @@
 - **Quiet by default.** A fresh install binds nothing at all: every macOS trackpad gesture keeps working untouched until you deliberately claim one.
 - **Reads the trackpad directly.** Uses the `MultitouchSupport` framework for true finger counts, so gestures are recognised by how many fingers are down — not by intercepting scroll events. Built-in and external Magic Trackpads both work.
 - **Gestures that don't collide.** One touch produces one gesture: a swipe locks to a single axis, a pinch cannot fire mid-swipe, and a swipe can never be mistaken for a tap.
-- **Both directions from one binding.** Bind "Next Track" to a horizontal swipe and the reverse swipe gives you "Previous Track" automatically. Same for snap left/right, Mission Control/Show Desktop and desktop switching.
-- **24 actions** across audio, display, media, windows, desktops and system, grouped in the picker.
+- **Both directions from one binding.** Bind "Next Track" to a horizontal swipe and the reverse swipe gives you "Previous Track" automatically. Same for snapping left/right and maximise/minimise.
+- **Nothing macOS already does.** Mission Control, App Exposé and desktop switching are three-finger swipes built into macOS, so the app leaves them there instead of shipping a second, worse copy. What it adds is what the trackpad cannot do on its own: volume, brightness, media, windows.
+- **21 actions** across audio, display, media, windows and system, grouped in the picker.
 - **Tells you when macOS is in the way.** Bind a gesture macOS already uses and the app says so, and offers to switch the system one off — and to put it back.
 - **Live HUD and haptics.** A floating overlay confirms every action, with a progress bar for volume and brightness, and a Taptic Engine tick as it fires.
 - **Live trackpad view.** Watch what the engine sees while you configure gestures.
@@ -37,8 +38,11 @@
 | **4-finger swipe ↔** | *off* | |
 | **4-finger pinch / spread** | *off* | |
 | **3-finger swipe ↕ ↔, tap, pinch / spread** | *off* | |
-| **2-finger swipe ↕ ↔, tap** | *off* | Leave these off to keep normal scrolling untouched |
 | **1-finger corner taps** (×4) | *off* | Tap a corner of the trackpad |
+
+Two fingers are macOS's own: swiping is scrolling, a tap is a secondary click,
+pinching is zoom, and none of it can be switched off — so there is no
+two-finger slot to bind against it.
 
 Every slot can be bound to any action:
 
@@ -48,7 +52,6 @@ Every slot can be bound to any action:
 | **Display** | Screen Brightness · Lock Screen |
 | **Media** | Play / Pause · Next Track · Previous Track |
 | **Windows** | Snap Left / Right / Top / Bottom · Maximize · Center · Minimize · Toggle Full Screen · Close Window |
-| **Desktop & Spaces** | Mission Control · App Windows · Next / Previous Desktop |
 | **System** | Screenshot to Clipboard · Spotlight · Middle Click · Launch Application |
 
 ---

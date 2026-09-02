@@ -17,7 +17,6 @@ enum GestureKind {
 enum GestureGroup: String, CaseIterable, Identifiable {
     case fourFinger
     case threeFinger
-    case twoFinger
     case corners
 
     var id: String { rawValue }
@@ -26,7 +25,6 @@ enum GestureGroup: String, CaseIterable, Identifiable {
         switch self {
         case .fourFinger: return "4 Fingers"
         case .threeFinger: return "3 Fingers"
-        case .twoFinger: return "2 Fingers"
         case .corners: return "Corners"
         }
     }
@@ -35,7 +33,6 @@ enum GestureGroup: String, CaseIterable, Identifiable {
         switch self {
         case .fourFinger: return "4-FINGER GESTURES"
         case .threeFinger: return "3-FINGER GESTURES"
-        case .twoFinger: return "2-FINGER GESTURES"
         case .corners: return "CORNER TAPS"
         }
     }
@@ -44,7 +41,6 @@ enum GestureGroup: String, CaseIterable, Identifiable {
         switch self {
         case .fourFinger: return "hand.raised.fill"
         case .threeFinger: return "hand.point.up.left.fill"
-        case .twoFinger: return "hand.tap.fill"
         case .corners: return "square.grid.2x2.fill"
         }
     }
@@ -65,10 +61,6 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
     case threeFingerPinchIn
     case threeFingerPinchOut
 
-    case twoFingerVertical
-    case twoFingerHorizontal
-    case twoFingerTap
-
     case cornerTopLeft
     case cornerTopRight
     case cornerBottomLeft
@@ -84,8 +76,6 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
         case .threeFingerVertical, .threeFingerHorizontal, .threeFingerTap,
              .threeFingerPinchIn, .threeFingerPinchOut:
             return .threeFinger
-        case .twoFingerVertical, .twoFingerHorizontal, .twoFingerTap:
-            return .twoFinger
         case .cornerTopLeft, .cornerTopRight, .cornerBottomLeft, .cornerBottomRight:
             return .corners
         }
@@ -93,11 +83,11 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
 
     var kind: GestureKind {
         switch self {
-        case .fourFingerVertical, .threeFingerVertical, .twoFingerVertical:
+        case .fourFingerVertical, .threeFingerVertical:
             return .swipeVertical
-        case .fourFingerHorizontal, .threeFingerHorizontal, .twoFingerHorizontal:
+        case .fourFingerHorizontal, .threeFingerHorizontal:
             return .swipeHorizontal
-        case .fourFingerTap, .threeFingerTap, .twoFingerTap:
+        case .fourFingerTap, .threeFingerTap:
             return .tap
         case .fourFingerPinchIn, .threeFingerPinchIn:
             return .pinchIn
@@ -113,7 +103,6 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
         switch group {
         case .fourFinger: return 4
         case .threeFinger: return 3
-        case .twoFinger: return 2
         case .corners: return 1
         }
     }
@@ -141,7 +130,6 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
         switch group {
         case .fourFinger: return "4-Finger \(title)"
         case .threeFinger: return "3-Finger \(title)"
-        case .twoFinger: return "2-Finger \(title)"
         case .corners: return title
         }
     }
