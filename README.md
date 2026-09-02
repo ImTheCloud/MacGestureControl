@@ -149,6 +149,19 @@ produces a file the old grant no longer covers: the entry stays in the list,
 still on, while the app sees no access. Remove it with **–**, then add the
 current binary back — the banner's **Reveal** button selects it in Finder.
 
+If the switch is on and the app still says no, the entry you are looking at is
+not the one macOS is reading: a reinstall can leave two records behind for the
+same app, and the list shows only one of them. Clear both and start over —
+this touches nothing but this app:
+
+```bash
+tccutil reset Accessibility com.imthecloud.MacGestureControl
+```
+
+Then reopen the app and accept the prompt. A macOS quirk worth knowing either
+way: the answer is cached per running process, so an app that was refused once
+keeps hearing no until it is relaunched.
+
 This only bites while you are working on the app. To stop it happening on every
 rebuild, sign with a self-signed certificate — Keychain Access → Certificate
 Assistant → *Create a Certificate…*, type **Code Signing** — and point the
