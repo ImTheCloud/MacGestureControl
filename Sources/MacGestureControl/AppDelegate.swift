@@ -19,6 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The only input path: the multitouch engine reads the trackpad directly.
         MultitouchEngine.shared.start()
 
+        // A binding can disappear between runs — cleared by the user, or an
+        // action the app no longer ships — and the macOS gesture it displaced
+        // has to come back with it.
+        NativeGestureManager.shared.releaseUnusedDisables()
+
         observeSettings()
         startPermissionWatch()
     }

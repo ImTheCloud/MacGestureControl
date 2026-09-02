@@ -554,6 +554,9 @@ struct SettingsView: View {
         return Menu {
             Button {
                 settings.setAction(.none, for: slot)
+                // Unbinding a slot is also the moment the macOS gesture it
+                // displaced should come back.
+                nativeGestures.releaseUnusedDisables()
                 HapticManager.shared.trigger()
             } label: {
                 Label(GestureAction.none.title, systemImage: GestureAction.none.icon)

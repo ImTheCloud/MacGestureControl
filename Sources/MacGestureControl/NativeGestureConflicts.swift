@@ -113,6 +113,31 @@ final class NativeGestureManager: ObservableObject {
         refresh()
     }
 
+    /// Hands back any macOS gesture this app switched off that nothing is bound
+    /// to any more — the binding was cleared, or the action behind it no longer
+    /// exists. Without this the app leaves the trackpad quieter than it found
+    /// it: the native gesture stays off, serving a binding that is long gone.
+    func releaseUnusedDisables(isBound: (GestureSlot) -> Bool = { AppSettings.shared.action(for: $0) != .none }) {
+        let orphans = Self.orphanedDisables(owned: ownedDisables, isBound: isBound)
+        guard !orphans.isEmpty else { return }
+
+        for gesture in orphans {
+            write(enabledValue, for: gesture)
+            ownedDisables.remove(gesture.rawValue)
+        }
+        applySystemSettings()
+        refresh()
+    }
+
+    /// The decision behind `releaseUnusedDisables`, kept pure so it can be
+    /// tested without writing to system preferences.
+    static func orphanedDisables(owned: Set<String>, isBound: (GestureSlot) -> Bool) -> Set<NativeGesture> {
+        let disabled = owned.compactMap(NativeGesture.init(rawValue:))
+        return Set(disabled.filter { gesture in
+            !GestureSlot.allCases.contains { $0.nativeConflict == gesture && isBound($0) }
+        })
+    }
+
     /// Puts back the macOS gestures this app switched off, and only those.
     func restoreAll() {
         for raw in ownedDisables {

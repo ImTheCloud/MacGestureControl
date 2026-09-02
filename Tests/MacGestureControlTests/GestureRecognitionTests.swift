@@ -368,6 +368,24 @@ final class GestureRecognitionTests: XCTestCase {
         }
     }
 
+    /// A macOS gesture switched off for a binding has to come back when the
+    /// binding does not — including when the action behind it is dropped from
+    /// the app, which is how three-finger Mission Control came to stay off.
+    func testDisabledMacOSGesturesComeBackWhenTheBindingIsGone() {
+        let owned: Set<String> = ["threeFingerVerticalSwipe", "fourFingerVerticalSwipe"]
+
+        let stillBound = NativeGestureManager.orphanedDisables(owned: owned) { slot in
+            slot == .fourFingerVertical
+        }
+        XCTAssertEqual(stillBound, [.threeFingerVerticalSwipe], "only the unbound one is handed back")
+
+        let noneBound = NativeGestureManager.orphanedDisables(owned: owned) { _ in false }
+        XCTAssertEqual(noneBound, [.threeFingerVerticalSwipe, .fourFingerVerticalSwipe])
+
+        let allBound = NativeGestureManager.orphanedDisables(owned: owned) { _ in true }
+        XCTAssertTrue(allBound.isEmpty, "a gesture still standing in for a binding stays off")
+    }
+
     func testEveryActionIsOfferedInThePicker() {
         // The picker lists `.none` separately, then every category in turn.
         for action in GestureAction.allCases where action != .none {
