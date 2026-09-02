@@ -70,15 +70,13 @@ final class AppSettings: ObservableObject {
         showHUD = defaults.object(forKey: Keys.showHUD) as? Bool ?? true
         invertDirection = defaults.object(forKey: Keys.invertDirection) as? Bool ?? false
         sensitivity = defaults.object(forKey: Keys.sensitivity) as? Double ?? 0.5
-        launchTargetBundleId = defaults.string(forKey: Keys.launchTarget)
-            ?? defaults.string(forKey: "app_targetBundleId_v5")
-            ?? "com.apple.Notes"
+        launchTargetBundleId = defaults.string(forKey: Keys.launchTarget) ?? "com.apple.Notes"
 
         var loaded: [GestureSlot: GestureAction] = [:]
         for slot in GestureSlot.allCases {
-            // Prefer the current key, fall back to the pre-refactor key so an
-            // existing install keeps its bindings, then to the shipped default.
-            let raw = defaults.string(forKey: slot.storageKey) ?? defaults.string(forKey: slot.legacyStorageKey)
+            // An unreadable or retired action name falls back to the default,
+            // so a binding left over from an older build cannot break a launch.
+            let raw = defaults.string(forKey: slot.storageKey)
             loaded[slot] = raw.flatMap(GestureAction.init(rawValue:)) ?? slot.defaultAction
         }
         actions = loaded

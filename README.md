@@ -8,9 +8,9 @@
 </p>
 
 <p align="center">
-  <b>A small, open-source macOS menu bar app that turns extra trackpad gestures into
-  volume, media, window and desktop controls — without getting in the way of the
-  gestures macOS already gives you.</b>
+  <b>A small, open-source macOS menu bar app that turns spare trackpad gestures into
+  volume, media and window controls — without getting in the way of the gestures
+  macOS already gives you.</b>
 </p>
 
 ---
@@ -58,7 +58,16 @@ Every slot can be bound to any action:
 
 ## 🚀 Install
 
-### Build the app bundle (recommended)
+The app is not signed with an Apple Developer certificate — that costs $99 a
+year — so macOS asks once whether you really want to open it. The steps below
+are the whole story; nothing else is hiding behind them.
+
+### 1. Get the app
+
+**Download it** from the [latest release](https://github.com/ImTheCloud/MacGestureControl/releases/latest),
+unzip, and drag `MacGestureControl.app` into your **Applications** folder.
+
+Or **build it yourself** — no Xcode needed, just the command line tools:
 
 ```bash
 git clone https://github.com/ImTheCloud/MacGestureControl.git
@@ -66,53 +75,89 @@ cd MacGestureControl
 ./Scripts/build-app.sh
 ```
 
-This produces a universal `dist/MacGestureControl.app`. Move it to `/Applications`
-and launch it. A bundle is worth the extra step: macOS grants Accessibility
-access to the app itself rather than to your terminal, and *Launch at Login*
-can then use the supported `SMAppService` API.
+That produces a universal (Apple Silicon + Intel) `dist/MacGestureControl.app`,
+and a zip beside it. Drag the app into **Applications**.
 
-### Or run it straight from source
+### 2. Open it the first time
+
+Because the app is unsigned, double-clicking it shows *"MacGestureControl cannot
+be opened"*. That is Gatekeeper, and you get past it once:
+
+- **right-click** (or Control-click) the app → **Open** → **Open** in the dialog.
+
+If macOS refuses outright — some versions of macOS 15+ hide the Open button —
+strip the download flag instead, then open it normally:
 
 ```bash
-swift run
+xattr -dr com.apple.quarantine /Applications/MacGestureControl.app
 ```
 
-Handy while hacking on it, but Accessibility permission is attached to your
-terminal, and *Launch at Login* falls back to a LaunchAgent plist.
+An app you built yourself is never quarantined, so this step does not apply.
+
+### 3. Give it Accessibility access
+
+Nothing has to be configured for the app to *see* your trackpad, but pressing a
+media key or moving a window on your behalf needs permission:
+
+1. The app asks on first launch — click **Open System Settings**.
+2. **Privacy & Security → Accessibility**, switch **MacGestureControl** on.
+3. The dot in the popover turns green and says *Active & listening*.
+
+### 4. Bind a gesture
+
+There is deliberately nothing bound on a fresh install, so every macOS gesture
+still behaves exactly as it did. Click the menu bar icon, pick a tab
+(**4 Fingers**, **3 Fingers**, **Corners**), and choose an action next to a
+gesture. It works immediately — no restart, no logging out.
+
+If macOS already uses that gesture, the app says so under the row and offers to
+switch the system one off. It remembers what it turned off, hands it back the
+moment you unbind the gesture, and the **Restore** button in Preferences puts
+everything back at once.
+
+Turn on **Launch at Login** in Preferences and you are done.
+
+### Uninstall
+
+Quit from the popover, drag the app to the Trash, and — if you ever let it
+switch a macOS gesture off — press **Restore** before you do. To clear its
+settings as well:
+
+```bash
+defaults delete com.imthecloud.MacGestureControl
+```
 
 ---
 
 ## 🔒 Permissions
 
-MacGesture Control asks for **Accessibility** access on first launch, and shows a
-banner in the popover until it is granted.
+**Accessibility** is the only permission the app asks for, and it is what lets a
+gesture press a media key, move a window or open Spotlight on your behalf.
+Reading the trackpad works without it — the actions do not. An action that
+cannot run says so in the overlay instead of pretending it worked.
 
-1. Open **System Settings → Privacy & Security → Accessibility**.
-2. Enable **MacGestureControl** (or your terminal, if running with `swift run`).
-3. Reopen the popover — the status dot turns green.
-
-Reading the trackpad works without it, but the actions themselves — synthesised
-key presses and window management — do not.
+No network access, no analytics, no bundled dependencies. Settings live in
+`UserDefaults`, and the app never writes anything outside its own preferences —
+except the macOS trackpad gestures you explicitly ask it to switch off, which it
+can put back.
 
 ### "It is already switched on, but the app still asks"
 
 macOS attaches the grant to the *code signature* it was given, not to the name
-in the list. `swift build` signs ad-hoc, so every rebuild produces a file the
-old grant no longer covers: the entry stays in the list, still on, while the app
-sees no access. Remove it with **–**, then add the current binary back (the
-banner's **Reveal** button selects it in Finder).
+in the list. A build from `swift build` is signed ad-hoc, so every rebuild
+produces a file the old grant no longer covers: the entry stays in the list,
+still on, while the app sees no access. Remove it with **–**, then add the
+current binary back — the banner's **Reveal** button selects it in Finder.
 
-To stop it happening on every rebuild, sign with a self-signed certificate —
-Keychain Access → Certificate Assistant → *Create a Certificate…*, type **Code
-Signing** — and point the scripts at it:
+This only bites while you are working on the app. To stop it happening on every
+rebuild, sign with a self-signed certificate — Keychain Access → Certificate
+Assistant → *Create a Certificate…*, type **Code Signing** — and point the
+scripts at it:
 
 ```bash
 export MACGESTURE_CODESIGN_IDENTITY="MacGestureControl Dev"
 ./Scripts/build-app.sh    # or ./Scripts/dev.sh
 ```
-
-No network access, no analytics, no bundled dependencies. Settings live in
-`UserDefaults`.
 
 ---
 
@@ -148,10 +193,21 @@ produced no motion at all — brief and barely moved — is what becomes a tap.
 Issues and pull requests are welcome.
 
 ```bash
-swift build          # debug build
-swift test           # gesture recognition tests
-./Scripts/build-app.sh
+swift build            # debug build
+swift test             # gesture recognition tests
+./Scripts/dev.sh       # rebuild and relaunch, streaming logs
+./Scripts/build-app.sh # universal .app plus a zip, in dist/
 ```
+
+Actions can be tried from the terminal without binding them to a gesture first:
+
+```bash
+./.build/debug/MacGestureControl --list-actions
+./.build/debug/MacGestureControl --run-action volume --down
+```
+
+To publish a version, run `./Scripts/build-app.sh` and attach
+`dist/MacGestureControl.zip` to a GitHub release.
 
 The recogniser is driven by synthetic touch frames in
 `Tests/MacGestureControlTests`, so gesture behaviour — taps versus swipes, axis

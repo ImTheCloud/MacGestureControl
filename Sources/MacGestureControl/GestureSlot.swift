@@ -168,7 +168,4 @@ enum GestureSlot: String, CaseIterable, Identifiable, Codable {
 
     /// Key used by `UserDefaults`.
     var storageKey: String { "slot_\(rawValue)_v6" }
-
-    /// Pre-refactor key, read once so existing installs keep their bindings.
-    var legacyStorageKey: String { "\(rawValue)Action_v5" }
 }

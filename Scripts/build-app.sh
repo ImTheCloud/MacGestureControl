@@ -40,8 +40,15 @@ cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 IDENTITY="${MACGESTURE_CODESIGN_IDENTITY:--}"
 codesign --force --sign "$IDENTITY" "$APP"
 
+# A zip is what a GitHub release needs, and `ditto` keeps the bundle's
+# structure and signature intact where `zip` would not.
+ARCHIVE="$ROOT/dist/MacGestureControl.zip"
+rm -f "$ARCHIVE"
+ditto -c -k --keepParent "$APP" "$ARCHIVE"
+
 echo
 echo "Built $APP"
+echo "      $ARCHIVE  (attach this to a release)"
 echo "Move it to /Applications, launch it, then grant Accessibility access."
 if [[ "$IDENTITY" == "-" ]]; then
     echo "Signed ad-hoc: re-grant Accessibility after every rebuild, or set"
