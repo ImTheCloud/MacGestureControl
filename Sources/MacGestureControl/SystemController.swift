@@ -96,8 +96,6 @@ final class SystemController {
         case .spotlight:
             postKey(KeyCode.space, flags: .maskCommand)
             feedback(icon: "magnifyingglass", title: "Spotlight")
-        case .middleClick:
-            performMiddleClick()
         case .launchApp:
             launchApp(bundleId: AppSettings.shared.launchTargetBundleId)
         }
@@ -358,23 +356,6 @@ final class SystemController {
             // Interactive area selection, straight to the clipboard.
             self.runTool("/usr/sbin/screencapture", arguments: ["-i", "-c"])
         }
-    }
-
-    // MARK: - Pointer
-
-    private func performMiddleClick() {
-        let mouseLocation = NSEvent.mouseLocation
-        // Cocoa's origin is the bottom-left of the primary screen, Quartz's is
-        // the top-left, so flip against the primary screen even on multi-display setups.
-        guard let primary = NSScreen.screens.first else { return }
-        let point = CGPoint(x: mouseLocation.x, y: primary.frame.maxY - mouseLocation.y)
-
-        CGEvent(mouseEventSource: nil, mouseType: .otherMouseDown, mouseCursorPosition: point, mouseButton: .center)?
-            .post(tap: .cghidEventTap)
-        CGEvent(mouseEventSource: nil, mouseType: .otherMouseUp, mouseCursorPosition: point, mouseButton: .center)?
-            .post(tap: .cghidEventTap)
-
-        feedback(icon: "computermouse.fill", title: "Middle Click")
     }
 
     // MARK: - Apps

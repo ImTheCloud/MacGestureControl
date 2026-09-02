@@ -44,7 +44,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
     // System
     case screenshot = "screenshot"
     case spotlight = "spotlight"
-    case middleClick = "middle_click"
     case launchApp = "launch_app"
 
     var id: String { rawValue }
@@ -60,7 +59,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
              .centerWindow, .minimizeWindow, .fullScreenWindow, .closeWindow:
             return .windows
-        case .screenshot, .spotlight, .middleClick, .launchApp, .none:
+        case .screenshot, .spotlight, .launchApp, .none:
             return .system
         }
     }
@@ -77,7 +76,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .mediaPlayPause, .mediaNext, .mediaPrevious,
              .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
              .centerWindow, .minimizeWindow, .fullScreenWindow, .closeWindow,
-             .spotlight, .middleClick:
+             .spotlight:
             return true
         }
     }
@@ -105,7 +104,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .closeWindow: return "Close Window"
         case .screenshot: return "Screenshot to Clipboard"
         case .spotlight: return "Spotlight Search"
-        case .middleClick: return "Middle Click"
         case .launchApp: return "Launch Application"
         }
     }
@@ -133,7 +131,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .closeWindow: return "Close Window"
         case .screenshot: return "Screenshot"
         case .spotlight: return "Spotlight"
-        case .middleClick: return "Middle Click"
         case .launchApp: return "Launch App"
         }
     }
@@ -160,7 +157,6 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         case .closeWindow: return "xmark.rectangle"
         case .screenshot: return "camera.fill"
         case .spotlight: return "magnifyingglass"
-        case .middleClick: return "computermouse.fill"
         case .launchApp: return "arrow.up.forward.app.fill"
         }
     }

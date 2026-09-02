@@ -22,7 +22,7 @@
 - **Gestures that don't collide.** One touch produces one gesture: a swipe locks to a single axis, a pinch cannot fire mid-swipe, and a swipe can never be mistaken for a tap.
 - **Both directions from one binding.** Bind "Next Track" to a horizontal swipe and the reverse swipe gives you "Previous Track" automatically. Same for snapping left/right and maximise/minimise.
 - **Nothing macOS already does.** Mission Control, App Exposé and desktop switching are three-finger swipes built into macOS, so the app leaves them there instead of shipping a second, worse copy. What it adds is what the trackpad cannot do on its own: volume, brightness, media, windows.
-- **21 actions** across audio, display, media, windows and system, grouped in the picker.
+- **20 actions** across audio, display, media, windows and system, grouped in the picker.
 - **Tells you when macOS is in the way.** Bind a gesture macOS already uses and the app says so, and offers to switch the system one off — and to put it back.
 - **Live HUD and haptics.** A floating overlay confirms every action, with a progress bar for volume and brightness, and a Taptic Engine tick as it fires.
 - **Live trackpad view.** Watch what the engine sees while you configure gestures.
@@ -52,7 +52,7 @@ Every slot can be bound to any action:
 | **Display** | Screen Brightness · Lock Screen |
 | **Media** | Play / Pause · Next Track · Previous Track |
 | **Windows** | Snap Left / Right / Top / Bottom · Maximize · Center · Minimize · Toggle Full Screen · Close Window |
-| **System** | Screenshot to Clipboard · Spotlight · Middle Click · Launch Application |
+| **System** | Screenshot to Clipboard · Spotlight · Launch Application |
 
 ---
 
@@ -92,7 +92,7 @@ banner in the popover until it is granted.
 3. Reopen the popover — the status dot turns green.
 
 Reading the trackpad works without it, but the actions themselves — synthesised
-key presses, window management, middle click — do not.
+key presses and window management — do not.
 
 ### "It is already switched on, but the app still asks"
 

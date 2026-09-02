@@ -356,7 +356,7 @@ final class GestureRecognitionTests: XCTestCase {
     func testActionsThatSynthesiseInputAreGatedOnAccessibility() {
         let synthesised: [GestureAction] = [
             .mediaNext, .mediaPrevious, .mediaPlayPause,
-            .spotlight, .middleClick, .snapLeft, .closeWindow
+            .spotlight, .snapLeft, .closeWindow
         ]
         for action in synthesised {
             XCTAssertTrue(action.requiresAccessibility, "\(action) posts synthesised input")
