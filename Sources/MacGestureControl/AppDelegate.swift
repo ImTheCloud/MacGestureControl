@@ -124,6 +124,14 @@ final class PermissionMonitor: ObservableObject {
 
     @Published private(set) var isTrusted: Bool = AXIsProcessTrusted()
 
+    /// macOS attaches the grant to the code signature it was given, not to the
+    /// name in the list. A bare binary from `swift build` is signed ad-hoc, so
+    /// every rebuild produces a file the old grant no longer covers: System
+    /// Settings keeps showing MacGestureControl switched on while
+    /// `AXIsProcessTrusted()` says no. Worth spelling out, because the obvious
+    /// reading of that screen is that the app is lying.
+    let isBundled = Bundle.main.bundleURL.pathExtension == "app"
+
     private init() {}
 
     func refresh() {
@@ -134,5 +142,12 @@ final class PermissionMonitor: ObservableObject {
     func openSettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    /// Selects the running executable in Finder, so it can be dragged onto the
+    /// Accessibility list after the stale entry has been removed.
+    func revealExecutable() {
+        guard let url = Bundle.main.executableURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([isBundled ? Bundle.main.bundleURL : url])
     }
 }

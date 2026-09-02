@@ -91,6 +91,23 @@ banner in the popover until it is granted.
 Reading the trackpad works without it, but the actions themselves — synthesised
 key presses, window management, middle click — do not.
 
+### "It is already switched on, but the app still asks"
+
+macOS attaches the grant to the *code signature* it was given, not to the name
+in the list. `swift build` signs ad-hoc, so every rebuild produces a file the
+old grant no longer covers: the entry stays in the list, still on, while the app
+sees no access. Remove it with **–**, then add the current binary back (the
+banner's **Reveal** button selects it in Finder).
+
+To stop it happening on every rebuild, sign with a self-signed certificate —
+Keychain Access → Certificate Assistant → *Create a Certificate…*, type **Code
+Signing** — and point the scripts at it:
+
+```bash
+export MACGESTURE_CODESIGN_IDENTITY="MacGestureControl Dev"
+./Scripts/build-app.sh    # or ./Scripts/dev.sh
+```
+
 No network access, no analytics, no bundled dependencies. Settings live in
 `UserDefaults`.
 

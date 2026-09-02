@@ -113,6 +113,8 @@ final class MultitouchEngine: ObservableObject {
     private var accumulatedX: Float = 0
     private var accumulatedY: Float = 0
     private var maxDrift: Float = 0
+    private var touchOrigins: [Int32: MTPoint] = [:]
+    private var maxFingerDrift: Float = 0
     private var pinchReference: Float?
     private var axisLock: AxisLock = .none
     private var didTriggerMotion = false
@@ -304,6 +306,8 @@ final class MultitouchEngine: ObservableObject {
             return
         }
 
+        trackFingerDrift(touches)
+
         let centroidX = touches.reduce(Float(0)) { $0 + $1.normalized.position.x } / Float(fingerCount)
         let centroidY = touches.reduce(Float(0)) { $0 + $1.normalized.position.y } / Float(fingerCount)
 
@@ -370,6 +374,24 @@ final class MultitouchEngine: ObservableObject {
         accumulatedY = 0
         pinchReference = nil
         settleUntil = timestamp + settleDuration
+    }
+
+    /// How far the fingers themselves have travelled since they landed.
+    ///
+    /// The centroid cannot answer that: it is re-anchored every time the finger
+    /// count changes and ignored during the settle window, so a quick two-finger
+    /// flick — fingers down, scroll, up, all inside 150 ms — used to reach
+    /// lift-off with a drift of zero and be reported as a tap. Each contact
+    /// keeps its own landing point instead, which no re-anchoring touches.
+    private func trackFingerDrift(_ touches: [MTTouch]) {
+        for touch in touches {
+            let position = touch.normalized.position
+            guard let origin = touchOrigins[touch.identifier] else {
+                touchOrigins[touch.identifier] = position
+                continue
+            }
+            maxFingerDrift = max(maxFingerDrift, hypot(position.x - origin.x, position.y - origin.y))
+        }
     }
 
     /// Mean distance from the centroid. Unlike the distance between the first
@@ -467,8 +489,11 @@ final class MultitouchEngine: ObservableObject {
         let fingers = sessionMaxFingers
 
         // A tap is a touch that never became a swipe or a pinch, stayed brief,
-        // and barely moved once the fingers had settled.
-        let isTap = !didTriggerMotion && duration < maxTapDuration && maxDrift < maxTapDrift
+        // and barely moved — neither the hand as a whole nor any single finger.
+        let isTap = !didTriggerMotion
+            && duration < maxTapDuration
+            && maxDrift < maxTapDrift
+            && maxFingerDrift < maxTapDrift
 
         if isTap {
             if fingers == 1 {
@@ -542,6 +567,8 @@ final class MultitouchEngine: ObservableObject {
         accumulatedX = 0
         accumulatedY = 0
         maxDrift = 0
+        touchOrigins.removeAll(keepingCapacity: true)
+        maxFingerDrift = 0
         pinchReference = nil
         axisLock = .none
         didTriggerMotion = false

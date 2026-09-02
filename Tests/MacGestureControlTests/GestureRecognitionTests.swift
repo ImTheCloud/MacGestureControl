@@ -66,6 +66,14 @@ final class GestureRecognitionTests: XCTestCase {
         return (0..<count).map { touch(Int32($0), start + spacing * Float($0), centreY) }
     }
 
+    /// Fingers that keep their own place on the glass as contacts come and go.
+    /// This is what the trackpad reports — lifting one finger does not slide the
+    /// others — and it is the difference between a tap and a flick, so the
+    /// landing and lifting tests build hands this way rather than with `hand`.
+    private func steadyHand(_ ids: [Int32], centreY: Float = 0.5, jitter: Float = 0) -> [MTTouch] {
+        ids.map { touch($0, 0.32 + 0.09 * Float($0) + jitter, centreY + jitter) }
+    }
+
     private func send(_ touches: [MTTouch], frames: Int = 1) {
         for _ in 0..<frames {
             clock += frameInterval
@@ -90,14 +98,14 @@ final class GestureRecognitionTests: XCTestCase {
 
             // Fingers land one frame apart, each landing slightly off-centre.
             let jitter = Float(attempt % 5) * 0.004
-            send(hand(count: 1, centreX: 0.50 + jitter, centreY: 0.50))
-            send(hand(count: 2, centreX: 0.52 + jitter, centreY: 0.52))
-            send(hand(count: 3, centreX: 0.49 + jitter, centreY: 0.47))
-            hold(0.10, hand(count: 4, centreX: 0.50 + jitter, centreY: 0.50))
-            // ...and lift one at a time, which moves the centroid a long way.
-            send(hand(count: 3, centreX: 0.55, centreY: 0.50))
-            send(hand(count: 2, centreX: 0.60, centreY: 0.50))
-            send(hand(count: 1, centreX: 0.66, centreY: 0.50))
+            send(steadyHand([0], jitter: jitter))
+            send(steadyHand([0, 1], jitter: jitter))
+            send(steadyHand([0, 1, 2], jitter: jitter))
+            hold(0.10, steadyHand([0, 1, 2, 3], jitter: jitter))
+            // ...and lift one at a time, which drags the centroid across the pad.
+            send(steadyHand([1, 2, 3], jitter: jitter))
+            send(steadyHand([2, 3], jitter: jitter))
+            send(steadyHand([3], jitter: jitter))
             send([])
 
             XCTAssertEqual(fired.count, 1, "attempt \(attempt): expected exactly one action")
@@ -117,6 +125,34 @@ final class GestureRecognitionTests: XCTestCase {
         hold(0.9, hand(count: 4, centreX: 0.5, centreY: 0.5))
         send([])
         XCTAssertTrue(fired.isEmpty, "resting four fingers must not trigger play/pause")
+    }
+
+    /// The reported bug: the two-finger action firing at random through the day.
+    /// A quick scroll flick — fingers down, sideways, up, all inside 150 ms —
+    /// never outlives the settle window, so the centroid it used to be judged on
+    /// had not moved by the time the fingers left and it was read as a tap.
+    func testQuickTwoFingerFlickIsNotATap() {
+        settings.actions[.twoFingerTap] = .appExpose
+
+        send(steadyHand([0, 1]))
+        for step in 1...12 {
+            let offset = Float(step) * 0.012
+            send([touch(0, 0.32, 0.5 - offset), touch(1, 0.41, 0.5 - offset)])
+        }
+        send([])
+
+        XCTAssertTrue(fired.isEmpty, "a two-finger scroll flick fired \(fired.map(\.slot))")
+    }
+
+    func testDeliberateTwoFingerTapStillFires() {
+        settings.actions[.twoFingerTap] = .appExpose
+
+        send(steadyHand([0]))
+        hold(0.08, steadyHand([0, 1]))
+        send(steadyHand([1]))
+        send([])
+
+        XCTAssertEqual(fired.map(\.slot), [.twoFingerTap])
     }
 
     func testThreeFingerTapUsesItsOwnBinding() {

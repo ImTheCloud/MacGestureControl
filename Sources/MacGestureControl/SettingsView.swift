@@ -219,17 +219,26 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 1.5) {
                 Text("Accessibility access required")
                     .font(.system(size: 12, weight: .semibold))
-                Text("Gestures cannot control your Mac until it is granted.")
+                Text(permissionDetail)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer(minLength: 8)
 
-            Button("Open") { permissions.openSettings() }
-                .font(.system(size: 10.5, weight: .semibold))
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+            VStack(alignment: .trailing, spacing: 4) {
+                Button("Open") { permissions.openSettings() }
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
+                if !permissions.isBundled {
+                    Button("Reveal") { permissions.revealExecutable() }
+                        .font(.system(size: 10))
+                        .buttonStyle(.link)
+                }
+            }
         }
         .padding(.horizontal, Row.horizontalPadding)
         .padding(.vertical, 10)
@@ -241,6 +250,16 @@ struct SettingsView: View {
                         .stroke(Color.orange.opacity(0.35), lineWidth: 0.8)
                 )
         )
+    }
+
+    /// An entry already switched on in System Settings is the confusing case,
+    /// and it is the normal one for a binary run straight from `swift build`:
+    /// the grant belongs to the build that asked for it, so the next build is a
+    /// stranger to macOS even though the name in the list has not changed.
+    private var permissionDetail: String {
+        permissions.isBundled
+            ? "Gestures cannot control your Mac until it is granted."
+            : "Already switched on? That entry belongs to an earlier build of this binary. Remove it with – and add this one back."
     }
 
     private var activeGestures: some View {
@@ -508,6 +527,10 @@ struct SettingsView: View {
     /// direction of a swipe, instead of a hard-coded caption.
     private func description(for slot: GestureSlot, action: GestureAction) -> String {
         guard action != .none else { return slot.subtitle }
+
+        // Launch App is the one action whose picker label does not say what it
+        // will do, so the caption names the target rather than the gesture.
+        if action == .launchApp { return "Opens \(launchTargetName)" }
 
         // Only swipes get a bespoke caption: the direction they run in cannot be
         // read off the picker. For every other slot the picker already names the

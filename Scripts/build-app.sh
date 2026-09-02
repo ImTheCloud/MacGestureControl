@@ -28,10 +28,22 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/MacGestureControl"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 
-# Ad-hoc signature: enough for the app to keep its Accessibility grant across
-# rebuilds on the machine that built it.
-codesign --force --sign - "$APP"
+# macOS keys the Accessibility grant to the signature it was granted to, and an
+# ad-hoc signature is different in every build — so each rebuild silently drops
+# the permission while System Settings still lists the old entry, switched on.
+# A self-signed certificate keeps the grant, because the requirement macOS
+# stores then names the certificate rather than this exact file:
+#
+#   Keychain Access -> Certificate Assistant -> Create a Certificate...
+#   name it, type "Code Signing", then
+#   export MACGESTURE_CODESIGN_IDENTITY="that name"
+IDENTITY="${MACGESTURE_CODESIGN_IDENTITY:--}"
+codesign --force --sign "$IDENTITY" "$APP"
 
 echo
 echo "Built $APP"
 echo "Move it to /Applications, launch it, then grant Accessibility access."
+if [[ "$IDENTITY" == "-" ]]; then
+    echo "Signed ad-hoc: re-grant Accessibility after every rebuild, or set"
+    echo "MACGESTURE_CODESIGN_IDENTITY to a self-signed code-signing certificate."
+fi

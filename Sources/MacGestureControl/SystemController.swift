@@ -84,13 +84,13 @@ final class SystemController {
         case .missionControl:
             openSystemApp(bundleId: "com.apple.exposelauncher", icon: "rectangle.stack.fill", title: "Mission Control")
         case .appExpose:
-            postKey(KeyCode.downArrow, flags: .maskControl)
+            postWindowServerKey(KeyCode.downArrow, modifier: "control")
             feedback(icon: "square.on.square", title: "App Exposé")
         case .nextSpace:
-            postKey(KeyCode.rightArrow, flags: .maskControl)
+            postWindowServerKey(KeyCode.rightArrow, modifier: "control")
             feedback(icon: "arrow.right.square", title: "Next Desktop")
         case .previousSpace:
-            postKey(KeyCode.leftArrow, flags: .maskControl)
+            postWindowServerKey(KeyCode.leftArrow, modifier: "control")
             feedback(icon: "arrow.left.square", title: "Previous Desktop")
         case .screenshot:
             takeScreenshot()
@@ -449,6 +449,17 @@ final class SystemController {
         guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: keyDown) else { return }
         event.flags = flags
         event.post(tap: .cghidEventTap)
+    }
+
+    /// Switching desktops and App Exposé are handled by the WindowServer, which
+    /// ignores a plain synthesised key event — measured: Control-arrow posted as
+    /// a CGEvent leaves the active space untouched, while the same key sent
+    /// through System Events switches it. Those two actions therefore go the
+    /// long way round, at the cost of an Automation prompt on first use.
+    private func postWindowServerKey(_ key: CGKeyCode, modifier: String) {
+        runTool("/usr/bin/osascript", arguments: [
+            "-e", "tell application \"System Events\" to key code \(key) using \(modifier) down"
+        ])
     }
 
     private func runTool(_ path: String, arguments: [String]) {
