@@ -74,6 +74,23 @@ enum GestureAction: String, CaseIterable, Identifiable, Codable {
         }
     }
 
+    /// Whether the action reaches the system through synthesised input, which
+    /// macOS drops without a word when the app is not trusted for Accessibility.
+    /// The ones left out speak to CoreAudio, DisplayServices, NSWorkspace or the
+    /// login framework instead, and work whatever TCC thinks of us.
+    var requiresAccessibility: Bool {
+        switch self {
+        case .none, .volume, .toggleMute, .toggleMicrophone, .brightness,
+             .lockScreen, .missionControl, .launchApp, .screenshot:
+            return false
+        case .mediaPlayPause, .mediaNext, .mediaPrevious,
+             .snapLeft, .snapRight, .snapTop, .snapBottom, .maximizeWindow,
+             .centerWindow, .minimizeWindow, .fullScreenWindow, .closeWindow,
+             .appExpose, .nextSpace, .previousSpace, .spotlight, .middleClick:
+            return true
+        }
+    }
+
     /// Full name, used in the action picker.
     var title: String {
         switch self {

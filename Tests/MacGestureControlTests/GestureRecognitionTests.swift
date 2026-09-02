@@ -348,6 +348,24 @@ final class GestureRecognitionTests: XCTestCase {
         }
     }
 
+    /// Anything that reaches the system as a synthesised event is dropped in
+    /// silence when the app is not trusted, so it has to be gated rather than
+    /// fired and reported as done.
+    func testActionsThatSynthesiseInputAreGatedOnAccessibility() {
+        let synthesised: [GestureAction] = [
+            .mediaNext, .mediaPrevious, .mediaPlayPause, .appExpose, .nextSpace,
+            .previousSpace, .spotlight, .middleClick, .snapLeft, .closeWindow
+        ]
+        for action in synthesised {
+            XCTAssertTrue(action.requiresAccessibility, "\(action) posts synthesised input")
+        }
+
+        let direct: [GestureAction] = [.volume, .toggleMute, .brightness, .lockScreen, .missionControl, .launchApp]
+        for action in direct {
+            XCTAssertFalse(action.requiresAccessibility, "\(action) works without Accessibility")
+        }
+    }
+
     func testEveryActionIsOfferedInThePicker() {
         // The picker lists `.none` separately, then every category in turn.
         for action in GestureAction.allCases where action != .none {

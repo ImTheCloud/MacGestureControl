@@ -51,6 +51,19 @@ final class SystemController {
             return
         }
 
+        // macOS drops synthesised input from an untrusted process without
+        // reporting anything, so an action would otherwise show its HUD and
+        // quietly do nothing — which is exactly how a stale Accessibility grant
+        // looks from the outside.
+        guard !action.requiresAccessibility || AXIsProcessTrusted() else {
+            HUDManager.shared.show(
+                icon: "lock.trianglebadge.exclamationmark.fill",
+                title: "Accessibility Access Required",
+                subtitle: "\(action.title) cannot run — grant access from the menu bar popover"
+            )
+            return
+        }
+
         switch action {
         case .none:
             break
@@ -84,14 +97,12 @@ final class SystemController {
         case .missionControl:
             openSystemApp(bundleId: "com.apple.exposelauncher", icon: "rectangle.stack.fill", title: "Mission Control")
         case .appExpose:
-            postWindowServerKey(KeyCode.downArrow, modifier: "control")
+            postKey(KeyCode.downArrow, flags: .maskControl)
             feedback(icon: "square.on.square", title: "App Exposé")
         case .nextSpace:
-            postWindowServerKey(KeyCode.rightArrow, modifier: "control")
-            feedback(icon: "arrow.right.square", title: "Next Desktop")
+            switchSpace(key: KeyCode.rightArrow, icon: "arrow.right.square", title: "Next Desktop")
         case .previousSpace:
-            postWindowServerKey(KeyCode.leftArrow, modifier: "control")
-            feedback(icon: "arrow.left.square", title: "Previous Desktop")
+            switchSpace(key: KeyCode.leftArrow, icon: "arrow.left.square", title: "Previous Desktop")
         case .screenshot:
             takeScreenshot()
         case .spotlight:
@@ -360,6 +371,23 @@ final class SystemController {
         }
     }
 
+    /// Control-arrow is what macOS binds to "move one space left/right", and
+    /// with only one desktop on the display in front of the user there is
+    /// nowhere for it to go — a case worth naming, because the gesture then
+    /// looks broken while the keystroke is being delivered perfectly.
+    private func switchSpace(key: CGKeyCode, icon: String, title: String) {
+        if let count = SpaceService.shared.desktopsOnActiveDisplay(), count < 2 {
+            HUDManager.shared.show(
+                icon: "rectangle.on.rectangle.slash",
+                title: "Only One Desktop",
+                subtitle: "Add another in Mission Control to switch between them"
+            )
+            return
+        }
+        postKey(key, flags: .maskControl)
+        feedback(icon: icon, title: title)
+    }
+
     // MARK: - Pointer
 
     private func performMiddleClick() {
@@ -451,17 +479,6 @@ final class SystemController {
         event.post(tap: .cghidEventTap)
     }
 
-    /// Switching desktops and App Exposé are handled by the WindowServer, which
-    /// ignores a plain synthesised key event — measured: Control-arrow posted as
-    /// a CGEvent leaves the active space untouched, while the same key sent
-    /// through System Events switches it. Those two actions therefore go the
-    /// long way round, at the cost of an Automation prompt on first use.
-    private func postWindowServerKey(_ key: CGKeyCode, modifier: String) {
-        runTool("/usr/bin/osascript", arguments: [
-            "-e", "tell application \"System Events\" to key code \(key) using \(modifier) down"
-        ])
-    }
-
     private func runTool(_ path: String, arguments: [String]) {
         DispatchQueue.global(qos: .userInitiated).async {
             let task = Process()
@@ -504,6 +521,56 @@ private final class LoginServices {
     func lockScreen() -> Bool {
         guard let lock else { return false }
         return lock() == 0
+    }
+}
+
+// MARK: - Spaces
+
+/// Read-only view of the window server's desktops, used to tell "the keystroke
+/// went nowhere" apart from "there is nowhere to go".
+private final class SpaceService {
+    static let shared = SpaceService()
+
+    private typealias MainConnectionID = @convention(c) () -> Int32
+    private typealias GetActiveSpace = @convention(c) (Int32) -> UInt64
+    private typealias CopyManagedDisplaySpaces = @convention(c) (Int32) -> Unmanaged<CFArray>?
+
+    private let connection: Int32?
+    private let activeSpace: GetActiveSpace?
+    private let copyDisplaySpaces: CopyManagedDisplaySpaces?
+
+    private init() {
+        guard let handle = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_LAZY),
+              let connectionSym = dlsym(handle, "SLSMainConnectionID"),
+              let activeSym = dlsym(handle, "SLSGetActiveSpace"),
+              let spacesSym = dlsym(handle, "SLSCopyManagedDisplaySpaces") else {
+            connection = nil
+            activeSpace = nil
+            copyDisplaySpaces = nil
+            return
+        }
+        connection = unsafeBitCast(connectionSym, to: MainConnectionID.self)()
+        activeSpace = unsafeBitCast(activeSym, to: GetActiveSpace.self)
+        copyDisplaySpaces = unsafeBitCast(spacesSym, to: CopyManagedDisplaySpaces.self)
+    }
+
+    /// Desktops on the display the user is currently working on, or `nil` when
+    /// the window server cannot be asked — in which case the caller should just
+    /// send the keystroke and let macOS decide. Displays keep their own spaces,
+    /// so the count that matters is the active display's, not the Mac's total.
+    func desktopsOnActiveDisplay() -> Int? {
+        guard let connection, let activeSpace, let copyDisplaySpaces,
+              let displays = copyDisplaySpaces(connection)?.takeRetainedValue() as? [[String: Any]] else {
+            return nil
+        }
+
+        let active = activeSpace(connection)
+        for display in displays {
+            let spaces = display["Spaces"] as? [[String: Any]] ?? []
+            let ids = spaces.compactMap { $0["id64"] as? UInt64 }
+            if ids.contains(active) { return spaces.count }
+        }
+        return nil
     }
 }
 
