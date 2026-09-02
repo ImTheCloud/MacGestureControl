@@ -59,15 +59,23 @@ Every slot can be bound to any action:
 ## 🚀 Install
 
 The app is not signed with an Apple Developer certificate — that costs $99 a
-year — so macOS asks once whether you really want to open it. The steps below
-are the whole story; nothing else is hiding behind them.
+year — so there are two ways in, and they are not equally smooth:
+
+- **Build it yourself** and macOS never questions it. An app compiled on your own
+  machine is not marked as downloaded, so Gatekeeper has nothing to warn about:
+  step 2 below simply does not happen. This is what the source being open buys
+  you, and it takes one command.
+- **Download the release** and macOS asks once whether you really want to open
+  it. Being open source does not change that — Gatekeeper reacts to where a file
+  came from, not to who wrote it — but the prompt is a one-time right-click.
+
+Either way, the steps below are the whole story; nothing else is hiding behind
+them.
 
 ### 1. Get the app
 
-**Download it** from the [latest release](https://github.com/ImTheCloud/MacGestureControl/releases/latest),
-unzip, and drag `MacGestureControl.app` into your **Applications** folder.
-
-Or **build it yourself** — no Xcode needed, just the command line tools:
+**Build it** — no Xcode needed, just the command line tools that `git` already
+pulls in:
 
 ```bash
 git clone https://github.com/ImTheCloud/MacGestureControl.git
@@ -76,7 +84,11 @@ cd MacGestureControl
 ```
 
 That produces a universal (Apple Silicon + Intel) `dist/MacGestureControl.app`,
-and a zip beside it. Drag the app into **Applications**.
+and a zip beside it. Drag the app into **Applications** and skip to step 3.
+
+Or **download it** from the
+[latest release](https://github.com/ImTheCloud/MacGestureControl/releases/latest),
+unzip, and drag `MacGestureControl.app` into **Applications**.
 
 ### 2. Open it the first time
 
