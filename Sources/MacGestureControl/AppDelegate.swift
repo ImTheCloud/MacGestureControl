@@ -24,6 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // has to come back with it.
         NativeGestureManager.shared.releaseUnusedDisables()
 
+        // An update replaces the bundle, which invalidates the login item macOS
+        // holds; this puts it back when the user asked for one.
+        LaunchAtLoginManager.shared.restoreIfNeeded()
+
         observeSettings()
         startPermissionWatch()
     }

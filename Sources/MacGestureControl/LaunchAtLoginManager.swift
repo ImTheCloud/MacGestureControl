@@ -27,7 +27,29 @@ final class LaunchAtLoginManager: ObservableObject {
             .appendingPathComponent("\(identifier).plist")
     }
 
+    /// The user's answer, kept apart from the system's record of it.
+    ///
+    /// macOS ties a login item to the app bundle it registered, and replacing
+    /// that bundle — which every update does — quietly invalidates it. Nothing
+    /// tells the app: it simply stops starting at login, with the setting still
+    /// showing as on. Storing the intent lets it be registered again.
+    private static let intentKey = "app_launchAtLogin_v6"
+
     private init() {
+        refresh()
+    }
+
+    /// Re-registers when the user asked for this and the system has forgotten.
+    /// Called at every launch, which is the only moment the app can notice.
+    func restoreIfNeeded() {
+        guard UserDefaults.standard.bool(forKey: Self.intentKey), isBundled else { return }
+        guard SMAppService.mainApp.status != .enabled else { return }
+
+        do {
+            try SMAppService.mainApp.register()
+        } catch {
+            NSLog("[LaunchAtLogin] Could not restore the login item: \(error.localizedDescription)")
+        }
         refresh()
     }
 
@@ -40,6 +62,8 @@ final class LaunchAtLoginManager: ObservableObject {
     }
 
     func setEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: Self.intentKey)
+
         if isBundled {
             do {
                 if enabled {
