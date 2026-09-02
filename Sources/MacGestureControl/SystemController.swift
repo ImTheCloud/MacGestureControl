@@ -112,6 +112,13 @@ final class SystemController {
         // Raising the volume on a muted output should be audible.
         if up, target > 0, isMuted(device) == true {
             setMuted(false, on: device)
+        } else if !up, target == 0 {
+            // Zero gain is not silence on every output — measured here: the
+            // step down lands on exactly 0.000000000 with the device still
+            // unmuted, and something is still playing. macOS's own volume keys
+            // mute when the last step reaches zero, which is why one press
+            // silences a Mac and one swipe used to leave a whisper behind.
+            setMuted(true, on: device)
         }
         let muted = isMuted(device) == true
 
