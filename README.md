@@ -219,6 +219,10 @@ trackpad and without touching your system.
 3. Commit your changes
 4. Open a pull request
 
+The app icon is drawn by `swift Scripts/make-icon.swift` — the same gradient and
+SF Symbol the popover header uses — and committed as `Resources/AppIcon.icns`,
+so building needs nothing but Swift.
+
 New actions only need a case in `GestureAction` (title, icon, category, and its
 `inverse` if the reverse swipe should do something different) plus a branch in
 `SystemController.execute` — the settings UI picks them up on its own.

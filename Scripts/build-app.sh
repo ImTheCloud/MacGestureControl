@@ -28,6 +28,10 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/MacGestureControl"
 cp "$ROOT/Info.plist" "$APP/Contents/Info.plist"
 
+# The icon is generated art, kept in the repo so a build needs nothing but
+# Swift. Regenerate it with: swift Scripts/make-icon.swift
+cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+
 # macOS keys the Accessibility grant to the signature it was granted to, and an
 # ad-hoc signature is different in every build — so each rebuild silently drops
 # the permission while System Settings still lists the old entry, switched on.
